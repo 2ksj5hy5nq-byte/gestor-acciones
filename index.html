@@ -21,7 +21,7 @@
   <option value="VENTA">Venta</option>
 </select>
 <input id="importe" type="number" placeholder="Importe €">
-<button id="guardar">Guardar acción</button>
+<button id="guardar" disabled>Guardar acción</button>
 
 <h2>Mis acciones</h2>
 <div id="listaAcciones"></div>
@@ -48,9 +48,9 @@
     getDocs
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // 🔥 CONFIGURACIÓN FIREBASE (la tuya)
+  // 🔥 CONFIGURACIÓN FIREBASE (DEL PROYECTO gestor-acciones)
   const firebaseConfig = {
-    apiKey: "TU_API_KEY",
+    apiKey: "TU_API_KEY_REAL",
     authDomain: "gestor-acciones.firebaseapp.com",
     projectId: "gestor-acciones",
     storageBucket: "gestor-acciones.appspot.com",
@@ -65,6 +65,7 @@
 
   const loginBtn = document.getElementById("login");
   const logoutBtn = document.getElementById("logout");
+  const guardarBtn = document.getElementById("guardar");
   const usuarioPre = document.getElementById("usuario");
 
   let user = null;
@@ -74,31 +75,42 @@
 
   onAuthStateChanged(auth, u => {
     user = u;
+
     if (u) {
       loginBtn.style.display = "none";
       logoutBtn.style.display = "inline";
+      guardarBtn.disabled = false;
+
       usuarioPre.textContent = JSON.stringify({
         uid: u.uid,
         email: u.email,
         nombre: u.displayName
       }, null, 2);
+
       cargarAcciones();
     } else {
       loginBtn.style.display = "inline";
       logoutBtn.style.display = "none";
+      guardarBtn.disabled = true;
+
       usuarioPre.textContent = "";
       document.getElementById("listaAcciones").innerHTML = "";
       document.getElementById("resumen").textContent = "";
     }
   });
 
-  document.getElementById("guardar").onclick = async () => {
+  guardarBtn.onclick = async () => {
+    if (!user) {
+      alert("Debes iniciar sesión");
+      return;
+    }
+
     const nombre = document.getElementById("nombre").value.trim();
     const tipo = document.getElementById("tipo").value;
     const importe = Number(document.getElementById("importe").value);
 
     if (!nombre || isNaN(importe)) {
-      alert("Faltan datos");
+      alert("Datos incorrectos");
       return;
     }
 
@@ -127,6 +139,7 @@
     );
 
     const snapshot = await getDocs(q);
+
     const accionesPorNombre = {};
     let total = 0;
 
