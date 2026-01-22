@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Gestor de Acciones</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: white;
+  padding: 20px;
+}
+
+input, button {
+  padding: 8px;
+  margin: 5px;
+}
+
+button {
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.bloque {
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.ganancia { color: #22c55e; }
+.perdida { color: #ef4444; }
+</style>
+</head>
+
+<body>
+
+<h2>📈 Gestor de Acciones</h2>
+
+<input id="accion" placeholder="Acción">
+<input id="cantidad" type="number" placeholder="Cantidad">
+<input id="precioCompra" type="number" step="0.01" placeholder="Precio compra">
+<input id="fechaCompra" type="date">
+<br>
+<button onclick="guardar()">Guardar compra</button>
+
+<div id="estado"></div>
+<div id="lista"></div>
+
+<!-- ================= FIREBASE ================= -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBapig7o",
+  authDomain: "gestor-acciones.firebaseapp.com",
+  projectId: "gestor-acciones",
+  storageBucket: "gestor-acciones.appspot.com",
+  messagingSenderId: "682376422747",
+  appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+};
+
+// Inicializar Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let uid = null;
+
+// Login anónimo
+auth.signInAnonymously().catch(console.error);
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    uid = user.uid;
+    document.getElementById("estado").innerHTML =
+      "🔥 Conectado a Firebase";
+    cargar();
+  }
+});
+
+// Guardar compra
+function guardar() {
+  const accion = accionInput().toUpperCase();
+  const cantidad = Number(document.getElementById("cantidad").value);
+  const precio = Number(document.getElementById("precioCompra").value);
+  const fecha = document.getElementById("fechaCompra").value;
+
+  if (!accion || !cantidad || !precio || !fecha) {
+    alert("Completa todos los campos");
+    return;
+  }
+
+  db.collection("operaciones").add({
+    uid,
+    accion,
+    cantidad,
+    precioCompra: precio,
+    totalCompra: cantidad * precio,
+    fechaCompra: fecha,
+    creada: firebase.firestore.FieldValue.serverTimestamp()
+  })
+  .then(() => {
+    limpiar();
+    cargar();
+  })
+  .catch(err => {
+    alert("❌ Error al guardar");
+    console.error(err);
+  });
+}
+
+// Cargar operaciones
+function cargar() {
+  lista.innerHTML = "";
+  db.collection("operaciones")
+    .where("uid", "==", uid)
+    .orderBy("creada", "desc")
+    .get()
+    .then(snap => {
+      snap.forEach(doc => {
+        const o = doc.data();
+        lista.innerHTML += `
+          <div class="bloque">
+            <strong>${o.accion}</strong><br>
+            Cantidad: ${o.cantidad}<br>
+            Precio compra: ${o.precioCompra} €<br>
+            Total: ${o.totalCompra.toFixed(2)} €<br>
+            Fecha: ${o.fechaCompra}
+          </div>`;
+      });
+    });
+}
+
+// Utilidades
+function limpiar() {
+  document.getElementById("accion").value = "";
+  document.getElementById("cantidad").value = "";
+  document.getElementById("precioCompra").value = "";
+  document.getElementById("fechaCompra").value = "";
+}
+
+function accionInput() {
+  return document.getElementById("accion").value.trim();
+}
+</script>
+
+</body>
+</html>
