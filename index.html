@@ -4,31 +4,56 @@
   <meta charset="UTF-8" />
   <title>Gestor de Acciones</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+    button {
+      padding: 10px 15px;
+      margin: 5px 0;
+      cursor: pointer;
+    }
+    #userData {
+      margin-top: 20px;
+      background: #f4f4f4;
+      padding: 15px;
+      border-radius: 5px;
+    }
+  </style>
 </head>
 <body>
 
   <h1>Gestor de Acciones</h1>
-  <p>Inicia sesión con Google para continuar</p>
 
-  <button onclick="loginGoogle()">Iniciar sesión con Google</button>
+  <!-- LOGIN -->
+  <div id="loginSection">
+    <p>Inicia sesión con Google para continuar</p>
+    <button onclick="loginGoogle()">Iniciar sesión con Google</button>
+  </div>
 
-  <hr />
+  <!-- USUARIO LOGUEADO -->
+  <div id="appSection" style="display:none;">
+    <p><strong>Sesión iniciada</strong></p>
+    <button onclick="logout()">Cerrar sesión</button>
 
-  <pre id="userInfo"></pre>
+    <div id="userData"></div>
+  </div>
 
+  <!-- FIREBASE -->
   <script type="module">
-    // 🔹 Importaciones Firebase (VERSIONES CORRECTAS)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
       getAuth,
       GoogleAuthProvider,
       signInWithPopup,
+      signOut,
       onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    // 🔹 Configuración Firebase (TU PROYECTO)
+    // 🔐 CONFIGURACIÓN FIREBASE
     const firebaseConfig = {
-      apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
+      apiKey: "AIzaSyD3XGLrrvUTNHqk8P0gU8ROeyKBApig7o",
       authDomain: "gestor-acciones.firebaseapp.com",
       projectId: "gestor-acciones",
       storageBucket: "gestor-acciones.appspot.com",
@@ -36,34 +61,45 @@
       appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
     };
 
-    // 🔹 Inicializar Firebase
+    // 🚀 INIT
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
 
-    // 🔹 Login con Google
+    // 🔑 LOGIN
     window.loginGoogle = async () => {
       try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
-        alert("Login correcto: " + user.email);
-      } catch (error) {
-        console.error(error);
-        alert("Error Firebase: " + error.message);
+        await signInWithPopup(auth, provider);
+      } catch (e) {
+        alert("Error de login: " + e.message);
       }
     };
 
-    // 🔹 Detectar sesión activa
+    // 🚪 LOGOUT
+    window.logout = async () => {
+      await signOut(auth);
+    };
+
+    // 👤 ESTADO DE SESIÓN
     onAuthStateChanged(auth, (user) => {
-      const info = document.getElementById("userInfo");
+      const loginSection = document.getElementById("loginSection");
+      const appSection = document.getElementById("appSection");
+      const userData = document.getElementById("userData");
+
       if (user) {
-        info.textContent = JSON.stringify({
-          uid: user.uid,
-          email: user.email,
-          nombre: user.displayName
-        }, null, 2);
+        loginSection.style.display = "none";
+        appSection.style.display = "block";
+
+        userData.innerHTML = `
+<pre>{
+  "uid": "${user.uid}",
+  "email": "${user.email}",
+  "nombre": "${user.displayName}"
+}</pre>`;
       } else {
-        info.textContent = "No hay usuario autenticado";
+        loginSection.style.display = "block";
+        appSection.style.display = "none";
+        userData.innerHTML = "";
       }
     });
   </script>
