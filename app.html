@@ -209,6 +209,7 @@ auth.signInAnonymously().catch(console.error);
 // Confirmación
 auth.onAuthStateChanged(user => {
   if (user) {
+    uid = user.uid;
     console.log("🔥 Firebase conectado. UID:", user.uid);
   }
 });
