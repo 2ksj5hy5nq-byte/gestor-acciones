@@ -183,6 +183,37 @@ function verHistorico(){
 
 ver("abiertas");
 </script>
+<!-- ================= FIREBASE ================= -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBapig7o",
+  authDomain: "gestor-acciones.firebaseapp.com",
+  projectId: "gestor-acciones",
+  storageBucket: "gestor-acciones.firebasestorage.app",
+  messagingSenderId: "682376422747",
+  appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+};
+
+// Inicializar Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Login anónimo automático
+auth.signInAnonymously().catch(console.error);
+
+// Confirmación
+auth.onAuthStateChanged(user => {
+  if (user) {
+    console.log("🔥 Firebase conectado. UID:", user.uid);
+  }
+});
+</script>
+<!-- ============================================ -->
 </body>
 </html>
+
