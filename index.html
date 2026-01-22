@@ -1,55 +1,36 @@
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script type="module">
+  // firebase sdk (cdn)
+  import { initializeapp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getauth, signinanonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getfirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-<script>
-  var firebaseconfig = {
-    apiKey: "TU_API_KEY",
-    authDomain: "gestor-acciones.firebaseapp.com",
-    projectId: "gestor-acciones",
+  // configuración firebase
+  const firebaseconfig = {
+    apikey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
+    authdomain: "gestor-acciones.firebaseapp.com",
+    projectid: "gestor-acciones",
+    storagebucket: "gestor-acciones.firebasestorage.app",
+    messagingsenderid: "682376422747",
+    appid: "1:682376422747:web:ec250f93ad6219eb2ce67e"
   };
 
-  firebase.initializeApp(firebaseconfig);
+  // iniciar firebase
+  const app = initializeapp(firebaseconfig);
 
-  var auth = firebase.auth();
-  var db = firebase.firestore();
-  var uid = null;
+  // auth y firestore
+  const auth = getauth(app);
+  const db = getfirestore(app);
 
-  auth.signInAnonymously()
-    .then(function (result) {
-      uid = result.user.uid;
-      console.log("autenticado como:", uid);
+  // login anónimo automático
+  signinanonymously(auth)
+    .then(() => {
+      console.log("usuario autenticado correctamente");
     })
-    .catch(function (error) {
+    .catch((error) => {
+      console.error("error de autenticación:", error);
       alert("error de autenticación con firebase");
-      console.error(error);
     });
 
-  function guardar() {
-    if (!uid) {
-      alert("usuario no autenticado todavía");
-      return;
-    }
-
-    var accion = document.getElementById("accion").value;
-    var cantidad = Number(document.getElementById("cantidad").value);
-    var precio = Number(document.getElementById("precio").value);
-    var fecha = document.getElementById("fecha").value;
-
-    db.collection("operaciones").add({
-      uid: uid,
-      accion: accion,
-      cantidad: cantidad,
-      precio: precio,
-      fecha: fecha,
-      created: firebase.firestore.FieldValue.serverTimestamp()
-    })
-    .then(function () {
-      alert("guardado correctamente");
-    })
-    .catch(function (error) {
-      alert("error al guardar");
-      console.error(error);
-    });
-  }
+  // hacer disponibles globalmente
+  window.db = db;
 </script>
