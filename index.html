@@ -1,113 +1,144 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Gestor de Acciones</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    input {
+      margin: 5px;
+    }
+    button {
+      margin: 5px 0;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    ul {
+      margin-top: 15px;
+    }
+  </style>
 </head>
 <body>
 
-<h1>Gestor de Acciones</h1>
+  <h1>Gestor de Acciones</h1>
+  <p>Inicia sesión con Google para continuar</p>
 
-<button onclick="loginGoogle()">Iniciar sesión con Google</button>
-<button onclick="logout()">Cerrar sesión</button>
+  <button onclick="loginGoogle()">Iniciar sesión con Google</button>
 
-<hr>
+  <div id="app" style="display:none;">
+    <h3>Nueva acción</h3>
+    <input id="nombre" placeholder="Acción (ej: AAPL)" />
+    <input id="precio" type="number" placeholder="Precio" />
+    <button onclick="guardarAccion()">Guardar</button>
 
-<h2>Añadir acción</h2>
-<input id="nombre" placeholder="Nombre de la acción">
-<input id="precio" type="number" placeholder="Precio">
-<button onclick="guardarAccion()">Guardar</button>
+    <h3>Mis acciones</h3>
+    <ul id="lista"></ul>
+  </div>
 
-<hr>
+  <script type="module">
+    // 🔹 Firebase SDKs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      query,
+      where,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-<h2>Mis acciones</h2>
-<ul id="lista"></ul>
+    // 🔹 Configuración Firebase (LA TUYA)
+    const firebaseConfig = {
+      apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8R0eyKBApig7o",
+      authDomain: "gestor-acciones.firebaseapp.com",
+      projectId: "gestor-acciones",
+      storageBucket: "gestor-acciones.appspot.com",
+      messagingSenderId: "682376422747",
+      appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+    };
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { 
-    getAuth, 
-    GoogleAuthProvider, 
-    signInWithPopup, 
-    onAuthStateChanged, 
-    signOut 
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    // 🔹 Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
 
-  import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    getDocs 
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    // 🔹 Login Google
+    window.loginGoogle = async () => {
+      try {
+        const result = await signInWithPopup(auth, provider);
+        alert("Login correcto: " + result.user.email);
+      } catch (e) {
+        alert("Error Firebase: " + e.message);
+      }
+    };
 
-  // 🔧 CONFIGURACIÓN FIREBASE (TUYA)
-  const firebaseConfig = {
-    apiKey: "AIzaSyD3XGLrrvUTNHqk8P0gU8ROeyKBApig7o",
-    authDomain: "gestor-acciones.firebaseapp.com",
-    projectId: "gestor-acciones",
-    storageBucket: "gestor-acciones.appspot.com",
-    messagingSenderId: "682376422747",
-    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
-  };
-
-  // 🚀 INIT
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const provider = new GoogleAuthProvider();
-
-  // 🔐 LOGIN
-  window.loginGoogle = async () => {
-    await signInWithPopup(auth, provider);
-  };
-
-  // 🔓 LOGOUT
-  window.logout = async () => {
-    await signOut(auth);
-    document.getElementById("lista").innerHTML = "";
-  };
-
-  // 👀 SESIÓN
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      cargarAcciones();
-    }
-  });
-
-  // 💾 GUARDAR ACCIÓN
-  window.guardarAccion = async () => {
-    const nombre = document.getElementById("nombre").value;
-    const precio = document.getElementById("precio").value;
-
-    if (!nombre || !precio) {
-      alert("Completa todos los campos");
-      return;
-    }
-
-    await addDoc(collection(db, "acciones"), {
-      nombre,
-      precio: Number(precio)
+    // 🔹 Estado de autenticación
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        document.querySelector("button").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        cargarAcciones(user.uid);
+      } else {
+        document.querySelector("button").style.display = "block";
+        document.getElementById("app").style.display = "none";
+        document.getElementById("lista").innerHTML = "";
+      }
     });
 
-    document.getElementById("nombre").value = "";
-    document.getElementById("precio").value = "";
+    // 🔹 Guardar acción
+    window.guardarAccion = async () => {
+      const nombre = document.getElementById("nombre").value;
+      const precio = document.getElementById("precio").value;
+      const user = auth.currentUser;
 
-    cargarAcciones();
-  };
+      if (!nombre || !precio) {
+        alert("Completa todos los campos");
+        return;
+      }
 
-  // 📥 CARGAR ACCIONES
-  async function cargarAcciones() {
-    const lista = document.getElementById("lista");
-    lista.innerHTML = "";
+      await addDoc(collection(db, "acciones"), {
+        uid: user.uid,
+        nombre,
+        precio: Number(precio),
+        fecha: new Date()
+      });
 
-    const querySnapshot = await getDocs(collection(db, "acciones"));
-    querySnapshot.forEach(doc => {
-      const li = document.createElement("li");
-      li.textContent = `${doc.data().nombre} - ${doc.data().precio} €`;
-      lista.appendChild(li);
-    });
-  }
-</script>
+      document.getElementById("nombre").value = "";
+      document.getElementById("precio").value = "";
+    };
+
+    // 🔹 Cargar acciones del usuario
+    function cargarAcciones(uid) {
+      const q = query(
+        collection(db, "acciones"),
+        where("uid", "==", uid)
+      );
+
+      onSnapshot(q, snapshot => {
+        const lista = document.getElementById("lista");
+        lista.innerHTML = "";
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          const li = document.createElement("li");
+          li.textContent = `${d.nombre} – ${d.precio} €`;
+          lista.appendChild(li);
+        });
+      });
+    }
+  </script>
 
 </body>
 </html>
