@@ -1,144 +1,50 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <title>Gestor de Acciones</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-    }
-    h1 {
-      margin-bottom: 10px;
-    }
-    input {
-      margin: 5px;
-    }
-    button {
-      margin: 5px 0;
-      padding: 5px 10px;
-      cursor: pointer;
-    }
-    ul {
-      margin-top: 15px;
-    }
-  </style>
-</head>
-<body>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithRedirect,
+    getRedirectResult,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  <h1>Gestor de Acciones</h1>
-  <p>Inicia sesión con Google para continuar</p>
+  // 🔧 Configuración Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8R0eyKBApig7o",
+    authDomain: "gestor-acciones.firebaseapp.com",
+    projectId: "gestor-acciones",
+    storageBucket: "gestor-acciones.appspot.com",
+    messagingSenderId: "682376422747",
+    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+  };
 
-  <button onclick="loginGoogle()">Iniciar sesión con Google</button>
+  // 🚀 Inicializar Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
 
-  <div id="app" style="display:none;">
-    <h3>Nueva acción</h3>
-    <input id="nombre" placeholder="Acción (ej: AAPL)" />
-    <input id="precio" type="number" placeholder="Precio" />
-    <button onclick="guardarAccion()">Guardar</button>
+  // 👉 Login con Google (REDIRECT)
+  window.loginGoogle = () => {
+    signInWithRedirect(auth, provider);
+  };
 
-    <h3>Mis acciones</h3>
-    <ul id="lista"></ul>
-  </div>
-
-  <script type="module">
-    // 🔹 Firebase SDKs
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import {
-      getAuth,
-      GoogleAuthProvider,
-      signInWithPopup,
-      onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import {
-      getFirestore,
-      collection,
-      addDoc,
-      query,
-      where,
-      onSnapshot
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    // 🔹 Configuración Firebase (LA TUYA)
-    const firebaseConfig = {
-      apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8R0eyKBApig7o",
-      authDomain: "gestor-acciones.firebaseapp.com",
-      projectId: "gestor-acciones",
-      storageBucket: "gestor-acciones.appspot.com",
-      messagingSenderId: "682376422747",
-      appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
-    };
-
-    // 🔹 Inicializar Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
-
-    // 🔹 Login Google
-    window.loginGoogle = async () => {
-      try {
-        const result = await signInWithPopup(auth, provider);
+  // 👉 Comprobar resultado del redirect
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result && result.user) {
         alert("Login correcto: " + result.user.email);
-      } catch (e) {
-        alert("Error Firebase: " + e.message);
+        console.log("Usuario:", result.user);
       }
-    };
-
-    // 🔹 Estado de autenticación
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        document.querySelector("button").style.display = "none";
-        document.getElementById("app").style.display = "block";
-        cargarAcciones(user.uid);
-      } else {
-        document.querySelector("button").style.display = "block";
-        document.getElementById("app").style.display = "none";
-        document.getElementById("lista").innerHTML = "";
-      }
+    })
+    .catch((error) => {
+      console.error(error);
+      alert("Error Firebase: " + error.message);
     });
 
-    // 🔹 Guardar acción
-    window.guardarAccion = async () => {
-      const nombre = document.getElementById("nombre").value;
-      const precio = document.getElementById("precio").value;
-      const user = auth.currentUser;
-
-      if (!nombre || !precio) {
-        alert("Completa todos los campos");
-        return;
-      }
-
-      await addDoc(collection(db, "acciones"), {
-        uid: user.uid,
-        nombre,
-        precio: Number(precio),
-        fecha: new Date()
-      });
-
-      document.getElementById("nombre").value = "";
-      document.getElementById("precio").value = "";
-    };
-
-    // 🔹 Cargar acciones del usuario
-    function cargarAcciones(uid) {
-      const q = query(
-        collection(db, "acciones"),
-        where("uid", "==", uid)
-      );
-
-      onSnapshot(q, snapshot => {
-        const lista = document.getElementById("lista");
-        lista.innerHTML = "";
-        snapshot.forEach(doc => {
-          const d = doc.data();
-          const li = document.createElement("li");
-          li.textContent = `${d.nombre} – ${d.precio} €`;
-          lista.appendChild(li);
-        });
-      });
-    }
-  </script>
-
-</body>
-</html>
+  // 👉 Logout (por si lo quieres luego)
+  window.logout = async () => {
+    await signOut(auth);
+    alert("Sesión cerrada");
+    location.reload();
+  };
+</script>
