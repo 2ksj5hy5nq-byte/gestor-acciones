@@ -1,8 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Gestor de Acciones</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; }
+    h1 { margin-bottom: 5px; }
+    section { margin-top: 20px; }
+    input, select, button { margin: 5px 0; padding: 5px; }
+    ul { padding-left: 20px; }
+  </style>
 </head>
 <body>
 
@@ -11,41 +18,35 @@
 <button id="loginBtn">Iniciar sesión con Google</button>
 <button id="logoutBtn" style="display:none;">Cerrar sesión</button>
 
-<hr>
+<section id="usuario"></section>
 
-<div id="app" style="display:none;">
-  <h3>Usuario</h3>
-  <pre id="userData"></pre>
-
+<section id="formulario" style="display:none;">
   <h3>Nueva acción</h3>
-  <button id="saveBtn">Guardar acción de prueba</button>
 
+  <select id="tipo">
+    <option value="COMPRA">COMPRA</option>
+    <option value="VENTA">VENTA</option>
+  </select>
+
+  <input type="number" id="importe" placeholder="Importe €" />
+  <input type="date" id="fecha" />
+
+  <br>
+  <button id="guardar">Guardar acción</button>
+</section>
+
+<section id="acciones" style="display:none;">
   <h3>Mis acciones</h3>
-  <ul id="accionesList"></ul>
-</div>
+  <ul id="lista"></ul>
+</section>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signOut,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import {
-    getFirestore,
-    collection,
-    addDoc,
-    query,
-    where,
-    onSnapshot,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  // 🔹 Firebase config (TU PROYECTO)
   const firebaseConfig = {
-    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
+    apiKey: "AIzaSyD3XGLrrvUTNHhqk8P0gU8ROeyKBApig7o",
     authDomain: "gestor-acciones.firebaseapp.com",
     projectId: "gestor-acciones",
     storageBucket: "gestor-acciones.appspot.com",
@@ -58,70 +59,83 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // DOM
   const loginBtn = document.getElementById("loginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
-  const appDiv = document.getElementById("app");
-  const userData = document.getElementById("userData");
-  const saveBtn = document.getElementById("saveBtn");
-  const accionesList = document.getElementById("accionesList");
+  const usuarioDiv = document.getElementById("usuario");
+  const formulario = document.getElementById("formulario");
+  const accionesDiv = document.getElementById("acciones");
+  const lista = document.getElementById("lista");
 
-  // Login
   loginBtn.onclick = async () => {
     await signInWithPopup(auth, provider);
   };
 
-  // Logout
   logoutBtn.onclick = async () => {
     await signOut(auth);
   };
 
-  // Estado sesión
-  onAuthStateChanged(auth, (user) => {
+  onAuthStateChanged(auth, user => {
     if (!user) {
       loginBtn.style.display = "inline";
       logoutBtn.style.display = "none";
-      appDiv.style.display = "none";
+      formulario.style.display = "none";
+      accionesDiv.style.display = "none";
+      usuarioDiv.innerHTML = "";
       return;
     }
 
     loginBtn.style.display = "none";
     logoutBtn.style.display = "inline";
-    appDiv.style.display = "block";
+    formulario.style.display = "block";
+    accionesDiv.style.display = "block";
 
-    userData.textContent = JSON.stringify({
-      uid: user.uid,
-      email: user.email,
-      nombre: user.displayName
-    }, null, 2);
-
-    // Guardar acción
-    saveBtn.onclick = async () => {
-      await addDoc(collection(db, "acciones"), {
+    usuarioDiv.innerHTML = `
+      <h3>Usuario</h3>
+      <pre>${JSON.stringify({
         uid: user.uid,
         email: user.email,
-        tipo: "COMPRA",
-        valor: Math.floor(Math.random() * 1000),
-        fecha: serverTimestamp()
-      });
-    };
+        nombre: user.displayName
+      }, null, 2)}</pre>
+    `;
 
-    // 🔥 LISTAR SOLO SUS ACCIONES
     const q = query(
       collection(db, "acciones"),
-      where("uid", "==", user.uid)
+      where("uid", "==", user.uid),
+      orderBy("fecha", "desc")
     );
 
-    onSnapshot(q, (snapshot) => {
-      accionesList.innerHTML = "";
-      snapshot.forEach((doc) => {
+    onSnapshot(q, snap => {
+      lista.innerHTML = "";
+      snap.forEach(doc => {
         const a = doc.data();
-        const li = document.createElement("li");
-        li.textContent = `${a.tipo} — ${a.valor} €`;
-        accionesList.appendChild(li);
+        lista.innerHTML += `<li>${a.tipo} — ${a.importe} € — ${a.fecha}</li>`;
       });
     });
   });
+
+  document.getElementById("guardar").onclick = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const tipo = document.getElementById("tipo").value;
+    const importe = Number(document.getElementById("importe").value);
+    const fecha = document.getElementById("fecha").value;
+
+    if (!importe || !fecha) {
+      alert("Rellena importe y fecha");
+      return;
+    }
+
+    await addDoc(collection(db, "acciones"), {
+      uid: user.uid,
+      tipo,
+      importe,
+      fecha,
+      createdAt: Date.now()
+    });
+
+    document.getElementById("importe").value = "";
+  };
 </script>
 
 </body>
