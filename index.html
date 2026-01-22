@@ -3,64 +3,66 @@
 <head>
   <meta charset="UTF-8" />
   <title>Gestor de Acciones</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-    }
-    button {
-      padding: 10px 15px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-    pre {
-      background: #f4f4f4;
-      padding: 10px;
-    }
-  </style>
 </head>
 <body>
 
   <h1>Gestor de Acciones</h1>
 
-  <!-- ZONA NO LOGUEADO -->
-  <div id="no-login">
+  <!-- LOGIN -->
+  <div id="login">
     <p>Inicia sesión con Google para continuar</p>
     <button onclick="loginGoogle()">Iniciar sesión con Google</button>
   </div>
 
-  <!-- ZONA LOGUEADO -->
-  <div id="login" style="display:none;">
+  <!-- APP -->
+  <div id="app" style="display:none;">
     <button onclick="logout()">Cerrar sesión</button>
 
     <h2>Usuario</h2>
-    <pre id="user-data"></pre>
+    <pre id="usuario"></pre>
 
     <h2>Nueva acción</h2>
-    <button onclick="guardarAccion()">Guardar acción de prueba</button>
+    <select id="tipo">
+      <option value="COMPRA">Compra</option>
+      <option value="VENTA">Venta</option>
+    </select>
+
+    <input
+      type="number"
+      id="importe"
+      placeholder="Importe €"
+      style="margin-left:10px;"
+    />
+
+    <button onclick="guardarAccion()" style="margin-left:10px;">
+      Guardar acción
+    </button>
 
     <h2>Mis acciones</h2>
     <ul id="acciones"></ul>
   </div>
 
+  <!-- FIREBASE -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
       getAuth,
       GoogleAuthProvider,
       signInWithPopup,
-      onAuthStateChanged,
-      signOut
+      signOut,
+      onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import {
       getFirestore,
       collection,
       addDoc,
-      getDocs,
       query,
-      where
+      where,
+      getDocs,
+      orderBy
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+    // 🔥 CONFIGURACIÓN FIREBASE (TUYA)
     const firebaseConfig = {
       apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
       authDomain: "gestor-acciones.firebaseapp.com",
@@ -70,64 +72,89 @@
       appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
     };
 
+    // INIT
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
+    // LOGIN
     window.loginGoogle = async () => {
       await signInWithPopup(auth, provider);
     };
 
+    // LOGOUT
     window.logout = async () => {
       await signOut(auth);
     };
 
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        document.getElementById("no-login").style.display = "none";
-        document.getElementById("login").style.display = "block";
-
-        document.getElementById("user-data").textContent = JSON.stringify({
-          uid: user.uid,
-          email: user.email,
-          nombre: user.displayName
-        }, null, 2);
-
-        cargarAcciones(user.uid);
-      } else {
-        document.getElementById("no-login").style.display = "block";
-        document.getElementById("login").style.display = "none";
-      }
-    });
-
+    // GUARDAR ACCIÓN
     window.guardarAccion = async () => {
       const user = auth.currentUser;
       if (!user) return;
 
+      const tipo = document.getElementById("tipo").value;
+      const importe = Number(document.getElementById("importe").value);
+
+      if (!importe || importe <= 0) {
+        alert("Introduce un importe válido");
+        return;
+      }
+
       await addDoc(collection(db, "acciones"), {
         uid: user.uid,
-        tipo: "COMPRA",
-        importe: 100,
+        tipo,
+        importe,
         fecha: new Date()
       });
 
+      document.getElementById("importe").value = "";
       cargarAcciones(user.uid);
     };
 
+    // CARGAR ACCIONES
     async function cargarAcciones(uid) {
       const lista = document.getElementById("acciones");
       lista.innerHTML = "";
 
-      const q = query(collection(db, "acciones"), where("uid", "==", uid));
-      const snap = await getDocs(q);
+      const q = query(
+        collection(db, "acciones"),
+        where("uid", "==", uid),
+        orderBy("fecha", "desc")
+      );
 
-      snap.forEach(doc => {
+      const snapshot = await getDocs(q);
+
+      snapshot.forEach(doc => {
+        const a = doc.data();
         const li = document.createElement("li");
-        li.textContent = `${doc.data().tipo} — ${doc.data().importe} €`;
+        li.textContent = `${a.tipo} — ${a.importe} €`;
         lista.appendChild(li);
       });
     }
+
+    // ESTADO DE SESIÓN
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        document.getElementById("login").style.display = "none";
+        document.getElementById("app").style.display = "block";
+
+        document.getElementById("usuario").textContent = JSON.stringify(
+          {
+            uid: user.uid,
+            email: user.email,
+            nombre: user.displayName
+          },
+          null,
+          2
+        );
+
+        cargarAcciones(user.uid);
+      } else {
+        document.getElementById("login").style.display = "block";
+        document.getElementById("app").style.display = "none";
+      }
+    });
   </script>
 
 </body>
