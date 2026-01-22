@@ -3,21 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <title>Gestor de Acciones</title>
-
 <style>
 body{font-family:Arial;background:#0f172a;color:white;padding:15px}
 input,button{padding:6px;margin:4px}
 button{font-weight:bold}
 .bloque{border:1px solid #334155;border-radius:8px;padding:10px;margin-top:10px}
-.oculto{display:none}
 </style>
 </head>
-
 <body>
 
 <h2>📈 Gestor de Acciones</h2>
-
-<h3>Guardar compra</h3>
 
 <input id="accion" placeholder="Acción">
 <input id="cantidad" type="number" placeholder="Cantidad">
@@ -26,19 +21,18 @@ button{font-weight:bold}
 <br>
 <button onclick="guardar()">Guardar compra</button>
 
+<div id="lista"></div>
+
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* 🔥 Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBapig7o",
   authDomain: "gestor-acciones.firebaseapp.com",
-  projectId: "gestor-acciones",
-  storageBucket: "gestor-acciones.firebasestorage.app",
-  messagingSenderId: "682376422747",
-  appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+  projectId: "gestor-acciones"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -47,24 +41,23 @@ const db = firebase.firestore();
 
 let uid = null;
 
-auth.signInAnonymously().catch(console.error);
+auth.signInAnonymously();
 
-auth.onAuthStateChanged(user=>{
+auth.onAuthStateChanged(user => {
   if(user){
     uid = user.uid;
-    console.log("Firebase conectado:", uid);
+    console.log("Conectado:", uid);
   }
 });
 
-/* 💾 Guardar operación */
 function guardar(){
-  const accion = document.getElementById("accion").value.trim();
-  const cantidad = Number(document.getElementById("cantidad").value);
-  const precio = Number(document.getElementById("precioCompra").value);
-  const fecha = document.getElementById("fechaCompra").value;
+  const accion = accionInput.value.trim();
+  const cantidad = Number(cantidadInput.value);
+  const precio = Number(precioCompra.value);
+  const fecha = fechaCompra.value;
 
   if(!accion || !cantidad || !precio || !fecha){
-    alert("⚠️ Completa todos los campos");
+    alert("Completa todos los campos");
     return;
   }
 
@@ -78,17 +71,16 @@ function guardar(){
     creada: firebase.firestore.FieldValue.serverTimestamp()
   })
   .then(()=>{
-    alert("✅ Operación guardada en la nube");
-    document.getElementById("accion").value="";
-    document.getElementById("cantidad").value="";
-    document.getElementById("precioCompra").value="";
-    document.getElementById("fechaCompra").value="";
+    alert("✅ Guardado correctamente");
   })
   .catch(err=>{
     alert("❌ Error al guardar");
     console.error(err);
   });
 }
+
+const accionInput = document.getElementById("accion");
+const cantidadInput = document.getElementById("cantidad");
 </script>
 
 </body>
