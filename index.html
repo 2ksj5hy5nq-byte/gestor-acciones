@@ -3,58 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <title>Gestor de Acciones</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-    }
-    button {
-      padding: 10px 15px;
-      margin: 5px 0;
-      cursor: pointer;
-    }
-    #app {
-      display: none;
-    }
-    pre {
-      background: #f4f4f4;
-      padding: 10px;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
 <body>
 
   <h1>Gestor de Acciones</h1>
+  <p>Inicia sesión con Google para continuar</p>
 
-  <!-- LOGIN -->
-  <div id="login">
-    <p>Inicia sesión con Google para continuar</p>
-    <button onclick="loginGoogle()">Iniciar sesión con Google</button>
-  </div>
+  <button onclick="loginGoogle()">Iniciar sesión con Google</button>
 
-  <!-- APP -->
-  <div id="app">
-    <p id="userInfo"></p>
-    <button onclick="logout()">Cerrar sesión</button>
+  <pre id="resultado"></pre>
 
-    <h3>Datos del usuario</h3>
-    <pre id="userData"></pre>
-  </div>
-
-  <!-- FIREBASE -->
   <script type="module">
+    // 🔹 Firebase SDKs (CDN, versión estable)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
       getAuth,
       GoogleAuthProvider,
-      signInWithPopup,
-      onAuthStateChanged,
-      signOut
+      signInWithPopup
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    // ⚠️ TU CONFIG REAL (la tuya)
+    // 🔹 CONFIGURACIÓN DE TU PROYECTO (NO TOCAR)
     const firebaseConfig = {
-      apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8R0eyKBApig7o",
+      apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
       authDomain: "gestor-acciones.firebaseapp.com",
       projectId: "gestor-acciones",
       storageBucket: "gestor-acciones.appspot.com",
@@ -62,49 +33,40 @@
       appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
     };
 
-    // Init
+    // 🔹 Inicializar Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
 
-    // LOGIN
+    // 🔹 Proveedor Google (FORZAMOS POPUP)
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: "select_account"
+    });
+
+    // 🔹 Login Google
     window.loginGoogle = async () => {
       try {
-        await signInWithPopup(auth, provider);
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        alert("Login correcto: " + user.email);
+
+        document.getElementById("resultado").textContent =
+          JSON.stringify(
+            {
+              uid: user.uid,
+              email: user.email,
+              nombre: user.displayName
+            },
+            null,
+            2
+          );
+
       } catch (e) {
-        alert("Error login: " + e.message);
+        console.error(e);
+        alert("Error Firebase: " + e.message);
       }
     };
-
-    // LOGOUT
-    window.logout = async () => {
-      await signOut(auth);
-    };
-
-    // ESTADO DE SESIÓN
-    onAuthStateChanged(auth, (user) => {
-      const login = document.getElementById("login");
-      const appDiv = document.getElementById("app");
-
-      if (user) {
-        login.style.display = "none";
-        appDiv.style.display = "block";
-
-        document.getElementById("userInfo").innerText =
-          `Conectado como ${user.displayName}`;
-
-        document.getElementById("userData").textContent =
-          JSON.stringify({
-            uid: user.uid,
-            email: user.email,
-            nombre: user.displayName
-          }, null, 2);
-
-      } else {
-        login.style.display = "block";
-        appDiv.style.display = "none";
-      }
-    });
   </script>
 
 </body>
