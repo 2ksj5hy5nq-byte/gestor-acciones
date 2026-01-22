@@ -1,73 +1,113 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Gestor de Acciones</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
 <body>
 
-  <h1>Gestor de Acciones</h1>
-  <p>Inicia sesión con Google para continuar</p>
+<h1>Gestor de Acciones</h1>
 
-  <button onclick="loginGoogle()">Iniciar sesión con Google</button>
+<button id="loginBtn">Iniciar sesión con Google</button>
+<button id="logoutBtn" style="display:none;">Cerrar sesión</button>
 
-  <pre id="resultado"></pre>
+<hr>
 
-  <script type="module">
-    // 🔹 Firebase SDKs (CDN, versión estable)
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import {
-      getAuth,
-      GoogleAuthProvider,
-      signInWithPopup
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+<div id="app" style="display:none;">
+  <h3>Usuario autenticado</h3>
+  <pre id="userData"></pre>
 
-    // 🔹 CONFIGURACIÓN DE TU PROYECTO (NO TOCAR)
-    const firebaseConfig = {
-      apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
-      authDomain: "gestor-acciones.firebaseapp.com",
-      projectId: "gestor-acciones",
-      storageBucket: "gestor-acciones.appspot.com",
-      messagingSenderId: "682376422747",
-      appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
-    };
+  <h3>Guardar acción</h3>
+  <button id="saveBtn">Guardar acción de prueba</button>
+</div>
 
-    // 🔹 Inicializar Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+<script type="module">
+  // 🔹 Firebase SDK
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { 
+    getAuth, 
+    GoogleAuthProvider, 
+    signInWithPopup, 
+    signOut, 
+    onAuthStateChanged 
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    // 🔹 Proveedor Google (FORZAMOS POPUP)
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({
-      prompt: "select_account"
-    });
+  import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // 🔹 Login Google
-    window.loginGoogle = async () => {
-      try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
+  // 🔹 Configuración Firebase (LA TUYA)
+  const firebaseConfig = {
+    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
+    authDomain: "gestor-acciones.firebaseapp.com",
+    projectId: "gestor-acciones",
+    storageBucket: "gestor-acciones.appspot.com",
+    messagingSenderId: "682376422747",
+    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+  };
 
-        alert("Login correcto: " + user.email);
+  // 🔹 Inicializar Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
 
-        document.getElementById("resultado").textContent =
-          JSON.stringify(
-            {
-              uid: user.uid,
-              email: user.email,
-              nombre: user.displayName
-            },
-            null,
-            2
-          );
+  // 🔹 Elementos HTML
+  const loginBtn = document.getElementById("loginBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const appDiv = document.getElementById("app");
+  const userData = document.getElementById("userData");
+  const saveBtn = document.getElementById("saveBtn");
 
-      } catch (e) {
-        console.error(e);
-        alert("Error Firebase: " + e.message);
-      }
-    };
-  </script>
+  // 🔹 Login
+  loginBtn.onclick = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  // 🔹 Logout
+  logoutBtn.onclick = async () => {
+    await signOut(auth);
+  };
+
+  // 🔹 Estado de sesión
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      loginBtn.style.display = "none";
+      logoutBtn.style.display = "inline";
+      appDiv.style.display = "block";
+
+      userData.textContent = JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        nombre: user.displayName
+      }, null, 2);
+
+      // Guardar acción
+      saveBtn.onclick = async () => {
+        await addDoc(collection(db, "acciones"), {
+          uid: user.uid,
+          email: user.email,
+          tipo: "COMPRA",
+          valor: 100,
+          fecha: serverTimestamp()
+        });
+        alert("Acción guardada en Firestore");
+      };
+
+    } else {
+      loginBtn.style.display = "inline";
+      logoutBtn.style.display = "none";
+      appDiv.style.display = "none";
+    }
+  });
+</script>
 
 </body>
 </html>
