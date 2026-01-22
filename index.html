@@ -1,36 +1,56 @@
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gestor de Acciones</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
-    authDomain: "gestor-acciones.firebaseapp.com",
-    projectId: "gestor-acciones",
-    storageBucket: "gestor-acciones.appspot.com",
-    messagingSenderId: "682376422747",
-    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
-  };
+<body>
+  <h1>Gestor de Acciones</h1>
+  <p>Inicia sesión con Google para continuar</p>
 
-  // Inicializar Firebase
-  const app = initializeApp(firebaseConfig);
+  <button onclick="loginGoogle()">Iniciar sesión con Google</button>
 
-  // Inicializar Auth
-  const auth = getAuth(app);
-  const provider = new GoogleAuthProvider();
+  <script type="module">
+    // Importar Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  // Ejemplo de login con Google (si lo usas)
-  window.loginGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
-      console.log("Usuario:", result.user);
-      alert("Login correcto");
-    } catch (e) {
-      console.error(e);
-      alert("Error Firebase: " + e.message);
-    }
-  };
-</script>
+    // Configuración Firebase (TU PROYECTO)
+    const firebaseConfig = {
+      apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
+      authDomain: "gestor-acciones.firebaseapp.com",
+      projectId: "gestor-acciones",
+      storageBucket: "gestor-acciones.appspot.com",
+      messagingSenderId: "682376422747",
+      appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+    };
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+
+    // Auth
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Función login (VISIBLE desde el botón)
+    window.loginGoogle = async () => {
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        alert("Login correcto: " + user.email);
+        console.log("Usuario:", user);
+      } catch (error) {
+        console.error(error);
+        alert("Error Firebase: " + error.message);
+      }
+    };
+  </script>
+</body>
+</html>
