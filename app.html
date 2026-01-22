@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Gestor de Acciones</title>
+<style>
+body{font-family:Arial;background:#0f172a;color:white;padding:15px}
+input,select,button{padding:8px;margin:6px;font-size:16px}
+button{font-weight:bold}
+.bloque{
+  border:1px solid #334155;
+  border-radius:8px;
+  padding:10px;
+  margin-top:12px
+}
+.ganancia{color:#22c55e;font-weight:bold}
+.perdida{color:#ef4444;font-weight:bold}
+</style>
+</head>
+
+<body>
+<h2>📈 Gestor de Acciones</h2>
+
+<input id="accion" placeholder="Acción (ej: AAPL)">
+<select id="tipo">
+  <option value="compra">Compra</option>
+  <option value="venta">Venta</option>
+</select>
+<input id="cantidad" type="number" placeholder="Cantidad">
+<input id="precio" type="number" step="0.01" placeholder="Precio">
+<input id="fecha" type="date">
+<button id="guardarBtn">Guardar</button>
+
+<hr>
+<h3>📦 Operaciones cerradas</h3>
+<div id="cerradas"></div>
+
+<script>
+let abiertas = [];
+let cerradas = [];
+
+document.getElementById("guardarBtn").addEventListener("click", guardar);
+
+function guardar(){
+  const a = document.getElementById("accion").value.trim().toUpperCase();
+  const t = document.getElementById("tipo").value;
+  const n = Number(document.getElementById("cantidad").value);
+  const p = Number(document.getElementById("precio").value);
+  const f = document.getElementById("fecha").value;
+
+  if(!a || !n || !p || !f){
+    alert("Completa todos los campos");
+    return;
+  }
+
+  if(t === "compra"){
+    abiertas.push({a,n,p,f});
+    alert("Compra guardada");
+  } else {
+    const i = abiertas.findIndex(o => o.a === a && o.n === n);
+    if(i === -1){
+      alert("No hay compra abierta con esa cantidad");
+      return;
+    }
+    const c = abiertas.splice(i,1)[0];
+    const r = (p - c.p) * n;
+
+    cerradas.push({
+      accion:a,
+      cantidad:n,
+      compra:c.p,
+      venta:p,
+      resultado:r
+    });
+
+    pintar();
+    alert("Venta guardada");
+  }
+}
+
+function pintar(){
+  const div = document.getElementById("cerradas");
+  div.innerHTML = "";
+
+  cerradas.forEach(o => {
+    div.innerHTML += `
+      <div class="bloque">
+        <strong>${o.accion}</strong><br>
+        Compra: ${o.cantidad} × ${o.compra} €<br>
+        Venta: ${o.cantidad} × ${o.venta} €<br>
+        Resultado:
+        <span class="${o.resultado >= 0 ? 'ganancia' : 'perdida'}">
+          ${o.resultado.toFixed(2)} €
+        </span>
+      </div>
+    `;
+  });
+}
+</script>
+
+</body>
+</html>
