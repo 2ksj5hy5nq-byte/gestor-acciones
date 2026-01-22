@@ -1,95 +1,134 @@
-<script type="module">
-  // Firebase SDKs (MISMA versión para todo)
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    onAuthStateChanged,
-    signOut
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import {
-    getFirestore,
-    collection,
-    addDoc,
-    query,
-    where,
-    getDocs
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-  // Configuración Firebase (la tuya)
-  const firebaseConfig = {
-    apiKey: "AIzaSyD3XGLrrvUTNHhqk8P0gU8ROeyKBApig7o",
-    authDomain: "gestor-acciones.firebaseapp.com",
-    projectId: "gestor-acciones",
-    storageBucket: "gestor-acciones.appspot.com",
-    messagingSenderId: "682376422747",
-    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
-  };
-
-  // Inicializar Firebase
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const provider = new GoogleAuthProvider();
-
-  // Login
-  window.loginGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
-      alert("Login correcto: " + result.user.email);
-    } catch (e) {
-      console.error(e);
-      alert("Error login: " + e.message);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gestor de Acciones</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
     }
-  };
+    button {
+      padding: 10px 15px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
 
-  // Logout
-  window.logout = async () => {
-    await signOut(auth);
-    location.reload();
-  };
+  <h1>Gestor de Acciones</h1>
 
-  // Estado de usuario
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) return;
+  <!-- ZONA NO LOGUEADO -->
+  <div id="no-login">
+    <p>Inicia sesión con Google para continuar</p>
+    <button onclick="loginGoogle()">Iniciar sesión con Google</button>
+  </div>
 
-    document.getElementById("usuario").textContent =
-      JSON.stringify({
+  <!-- ZONA LOGUEADO -->
+  <div id="login" style="display:none;">
+    <button onclick="logout()">Cerrar sesión</button>
+
+    <h2>Usuario</h2>
+    <pre id="user-data"></pre>
+
+    <h2>Nueva acción</h2>
+    <button onclick="guardarAccion()">Guardar acción de prueba</button>
+
+    <h2>Mis acciones</h2>
+    <ul id="acciones"></ul>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      getDocs,
+      query,
+      where
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
+      authDomain: "gestor-acciones.firebaseapp.com",
+      projectId: "gestor-acciones",
+      storageBucket: "gestor-acciones.appspot.com",
+      messagingSenderId: "682376422747",
+      appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    window.loginGoogle = async () => {
+      await signInWithPopup(auth, provider);
+    };
+
+    window.logout = async () => {
+      await signOut(auth);
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        document.getElementById("no-login").style.display = "none";
+        document.getElementById("login").style.display = "block";
+
+        document.getElementById("user-data").textContent = JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          nombre: user.displayName
+        }, null, 2);
+
+        cargarAcciones(user.uid);
+      } else {
+        document.getElementById("no-login").style.display = "block";
+        document.getElementById("login").style.display = "none";
+      }
+    });
+
+    window.guardarAccion = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      await addDoc(collection(db, "acciones"), {
         uid: user.uid,
-        email: user.email,
-        nombre: user.displayName
-      }, null, 2);
+        tipo: "COMPRA",
+        importe: 100,
+        fecha: new Date()
+      });
 
-    // Cargar acciones del usuario
-    const q = query(
-      collection(db, "acciones"),
-      where("uid", "==", user.uid)
-    );
+      cargarAcciones(user.uid);
+    };
 
-    const snapshot = await getDocs(q);
-    const ul = document.getElementById("acciones");
-    ul.innerHTML = "";
+    async function cargarAcciones(uid) {
+      const lista = document.getElementById("acciones");
+      lista.innerHTML = "";
 
-    snapshot.forEach(doc => {
-      const li = document.createElement("li");
-      li.textContent = `${doc.data().tipo} — ${doc.data().importe} €`;
-      ul.appendChild(li);
-    });
-  });
+      const q = query(collection(db, "acciones"), where("uid", "==", uid));
+      const snap = await getDocs(q);
 
-  // Guardar acción de prueba
-  window.guardarAccion = async () => {
-    const user = auth.currentUser;
-    if (!user) return alert("No logueado");
+      snap.forEach(doc => {
+        const li = document.createElement("li");
+        li.textContent = `${doc.data().tipo} — ${doc.data().importe} €`;
+        lista.appendChild(li);
+      });
+    }
+  </script>
 
-    await addDoc(collection(db, "acciones"), {
-      uid: user.uid,
-      tipo: "COMPRA",
-      importe: 100,
-      fecha: new Date()
-    });
-
-    location.reload();
-  };
-</script>
+</body>
+</html>
