@@ -1,174 +1,168 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Gestor de Acciones</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    button { margin: 5px 0; }
-    input, select { margin-right: 5px; }
-    pre { background: #f4f4f4; padding: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 6px 12px;
+      margin: 5px 0;
+      cursor: pointer;
+    }
+    input, select {
+      padding: 6px;
+      margin-right: 5px;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 10px;
+    }
   </style>
 </head>
 <body>
 
-  <h1>Gestor de Acciones</h1>
+<h1>Gestor de Acciones</h1>
 
-  <!-- LOGIN -->
-  <div id="login">
-    <button id="loginBtn">Iniciar sesión con Google</button>
-  </div>
+<div id="login">
+  <p>Inicia sesión con Google para continuar</p>
+  <button id="loginBtn">Iniciar sesión con Google</button>
+</div>
 
-  <!-- APP -->
-  <div id="app" style="display:none">
-    <button id="logoutBtn">Cerrar sesión</button>
+<div id="app" style="display:none;">
+  <button id="logoutBtn">Cerrar sesión</button>
 
-    <h2>Usuario</h2>
-    <pre id="userData"></pre>
+  <h3>Usuario</h3>
+  <pre id="userData"></pre>
 
-    <h2>Nueva acción</h2>
-    <select id="tipo">
-      <option value="Compra">Compra</option>
-      <option value="Venta">Venta</option>
-    </select>
-    <input id="importe" type="number" placeholder="Importe €" />
-    <button id="guardarBtn">Guardar acción</button>
+  <h3>Nueva acción</h3>
+  <select id="tipo">
+    <option value="Compra">Compra</option>
+    <option value="Venta">Venta</option>
+  </select>
+  <input type="number" id="importe" placeholder="Importe €">
+  <button id="guardarBtn">Guardar acción</button>
 
-    <h2>Mis acciones</h2>
-    <ul id="lista"></ul>
+  <h3>Mis acciones</h3>
+  <ul id="listaAcciones"></ul>
 
-    <h2>Resumen</h2>
-    <p id="resumen"></p>
-  </div>
+  <h3>Resumen</h3>
+  <p id="resumen"></p>
+</div>
 
-  <script type="module">
-    // Firebase SDK
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import {
-      getAuth,
-      GoogleAuthProvider,
-      signInWithPopup,
-      signOut,
-      onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    onAuthStateChanged,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    query,
+    where,
+    onSnapshot,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    import {
-      getFirestore,
-      collection,
-      addDoc,
-      query,
-      where,
-      getDocs,
-      serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  // 🔴 CONFIGURACIÓN FIREBASE (usa la tuya)
+  const firebaseConfig = {
+    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
+    authDomain: "gestor-acciones.firebaseapp.com",
+    projectId: "gestor-acciones",
+    storageBucket: "gestor-acciones.appspot.com",
+    messagingSenderId: "682376422747",
+    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+  };
 
-    // 🔥 CONFIG (TUYA)
-    const firebaseConfig = {
-      apiKey: "AIzaSyD3XGLrrvUTNHhqk8P0gU8ROeyKBApig7o",
-      authDomain: "gestor-acciones.firebaseapp.com",
-      projectId: "gestor-acciones",
-      storageBucket: "gestor-acciones.appspot.com",
-      messagingSenderId: "682376422747",
-      appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
-    };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
+  const loginDiv = document.getElementById("login");
+  const appDiv = document.getElementById("app");
+  const userData = document.getElementById("userData");
+  const listaAcciones = document.getElementById("listaAcciones");
+  const resumen = document.getElementById("resumen");
 
-    const loginDiv = document.getElementById("login");
-    const appDiv = document.getElementById("app");
-    const userData = document.getElementById("userData");
-    const lista = document.getElementById("lista");
-    const resumen = document.getElementById("resumen");
+  document.getElementById("loginBtn").onclick = async () => {
+    await signInWithPopup(auth, provider);
+  };
 
-    // LOGIN
-    document.getElementById("loginBtn").onclick = async () => {
-      await signInWithPopup(auth, provider);
-    };
+  document.getElementById("logoutBtn").onclick = async () => {
+    await signOut(auth);
+  };
 
-    // LOGOUT
-    document.getElementById("logoutBtn").onclick = async () => {
-      await signOut(auth);
-    };
+  document.getElementById("guardarBtn").onclick = async () => {
+    const tipo = document.getElementById("tipo").value;
+    const importe = Number(document.getElementById("importe").value);
+    const user = auth.currentUser;
 
-    // GUARDAR ACCIÓN
-    document.getElementById("guardarBtn").onclick = async () => {
-      const tipo = document.getElementById("tipo").value;
-      const importe = Number(document.getElementById("importe").value);
-      const user = auth.currentUser;
+    if (!importe || importe <= 0) {
+      alert("Introduce un importe válido");
+      return;
+    }
 
-      if (!importe || importe <= 0) {
-        alert("Introduce un importe válido");
-        return;
-      }
+    await addDoc(collection(db, "acciones"), {
+      uid: user.uid,
+      tipo,
+      importe,
+      fecha: serverTimestamp()
+    });
 
-      await addDoc(collection(db, "acciones"), {
-        uid: user.uid,
-        tipo,
-        importe,
-        fecha: serverTimestamp()
-      });
+    document.getElementById("importe").value = "";
+  };
 
-      document.getElementById("importe").value = "";
-      cargarAcciones(user);
-    };
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      loginDiv.style.display = "block";
+      appDiv.style.display = "none";
+      return;
+    }
 
-    // CARGAR ACCIONES (SIN orderBy)
-    async function cargarAcciones(user) {
-      lista.innerHTML = "";
+    loginDiv.style.display = "none";
+    appDiv.style.display = "block";
+
+    userData.textContent = JSON.stringify({
+      uid: user.uid,
+      email: user.email,
+      nombre: user.displayName
+    }, null, 2);
+
+    const q = query(
+      collection(db, "acciones"),
+      where("uid", "==", user.uid)
+    );
+
+    onSnapshot(q, (snap) => {
+      listaAcciones.innerHTML = "";
       let total = 0;
 
-      const q = query(
-        collection(db, "acciones"),
-        where("uid", "==", user.uid)
-      );
-
-      const snap = await getDocs(q);
-
-      const acciones = [];
-
       snap.forEach(doc => {
-        acciones.push(doc.data());
-      });
+        const a = doc.data();
+        const signo = a.tipo === "Compra" ? -1 : 1;
+        total += signo * a.importe;
 
-      // Ordenar en JS (no requiere índice)
-      acciones.sort((a, b) => {
-        if (!a.fecha || !b.fecha) return 0;
-        return b.fecha.seconds - a.fecha.seconds;
-      });
-
-      acciones.forEach(a => {
         const li = document.createElement("li");
         li.textContent = `${a.tipo} — ${a.importe} €`;
-        lista.appendChild(li);
-
-        total += a.tipo === "Compra" ? -a.importe : a.importe;
+        listaAcciones.appendChild(li);
       });
 
       resumen.textContent = `Resultado total: ${total.toFixed(2)} €`;
-    }
-
-    // AUTH STATE
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        loginDiv.style.display = "none";
-        appDiv.style.display = "block";
-
-        userData.textContent = JSON.stringify({
-          uid: user.uid,
-          email: user.email,
-          nombre: user.displayName
-        }, null, 2);
-
-        cargarAcciones(user);
-      } else {
-        loginDiv.style.display = "block";
-        appDiv.style.display = "none";
-      }
     });
-  </script>
+  });
+</script>
 
 </body>
 </html>
