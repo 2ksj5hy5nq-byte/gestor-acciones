@@ -1,87 +1,32 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Gestor de Acciones</title>
-<style>
-body{font-family:Arial;background:#0f172a;color:white;padding:15px}
-input,button{padding:6px;margin:4px}
-button{font-weight:bold}
-.bloque{border:1px solid #334155;border-radius:8px;padding:10px;margin-top:10px}
-</style>
-</head>
-<body>
-
-<h2>📈 Gestor de Acciones</h2>
-
-<input id="accion" placeholder="Acción">
-<input id="cantidad" type="number" placeholder="Cantidad">
-<input id="precioCompra" type="number" step="0.01" placeholder="Precio compra">
-<input id="fechaCompra" type="date">
-<br>
-<button onclick="guardar()">Guardar compra</button>
-
-<div id="lista"></div>
-
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBapig7o",
-  authDomain: "gestor-acciones.firebaseapp.com",
-  projectId: "gestor-acciones"
-};
-
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-
 let uid = null;
 
-auth.signInAnonymously();
+function guardar() {
+  const accion = document.getElementById("accion").value.trim();
+  const cantidad = Number(document.getElementById("cantidad").value);
+  const precio = Number(document.getElementById("precioCompra").value);
+  const fecha = document.getElementById("fechaCompra").value;
 
-auth.onAuthStateChanged(user => {
-  if(user){
-    uid = user.uid;
-    console.log("Conectado:", uid);
-  }
-});
-
-function guardar(){
-  const accion = accionInput.value.trim();
-  const cantidad = Number(cantidadInput.value);
-  const precio = Number(precioCompra.value);
-  const fecha = fechaCompra.value;
-
-  if(!accion || !cantidad || !precio || !fecha){
-    alert("Completa todos los campos");
+  if (!accion || !cantidad || !precio || !fecha) {
+    alert("⚠️ Completa todos los campos");
     return;
   }
 
   db.collection("operaciones").add({
-    uid,
-    accion,
-    cantidad,
-    precio,
-    total: cantidad * precio,
-    fecha,
+    uid: uid,
+    accion: accion,
+    cantidad: cantidad,
+    precioCompra: precio,
+    totalCompra: cantidad * precio,
+    fechaCompra: fecha,
     creada: firebase.firestore.FieldValue.serverTimestamp()
   })
-  .then(()=>{
-    alert("✅ Guardado correctamente");
+  .then(() => {
+    alert("✅ Operación guardada");
   })
-  .catch(err=>{
+  .catch(err => {
     alert("❌ Error al guardar");
-    console.error(err);
+    console.error("Firestore error:", err);
   });
 }
-
-const accionInput = document.getElementById("accion");
-const cantidadInput = document.getElementById("cantidad");
 </script>
-
-</body>
-</html>
