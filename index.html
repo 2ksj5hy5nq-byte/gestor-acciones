@@ -1,9 +1,13 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8R0eyKBApig7o",
+    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
     authDomain: "gestor-acciones.firebaseapp.com",
     projectId: "gestor-acciones",
     storageBucket: "gestor-acciones.appspot.com",
@@ -11,14 +15,22 @@
     appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
   };
 
+  // Inicializar Firebase
   const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
 
-  signInAnonymously(auth)
-    .then(() => {
-      alert("Firebase conectado correctamente ✅");
-    })
-    .catch((error) => {
-      alert("Error Firebase ❌: " + error.message);
-    });
+  // Inicializar Auth
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // Ejemplo de login con Google (si lo usas)
+  window.loginGoogle = async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      console.log("Usuario:", result.user);
+      alert("Login correcto");
+    } catch (e) {
+      console.error(e);
+      alert("Error Firebase: " + e.message);
+    }
+  };
 </script>
