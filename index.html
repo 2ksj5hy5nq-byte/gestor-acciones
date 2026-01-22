@@ -5,18 +5,18 @@
 <title>Gestor de Acciones</title>
 
 <style>
-body {
+body{
   font-family: Arial, sans-serif;
-  background: #0f172a;
-  color: white;
-  padding: 20px;
+  background:#0f172a;
+  color:white;
+  padding:20px;
 }
-input, button {
-  padding: 8px;
-  margin: 5px;
+input, button{
+  padding:8px;
+  margin:5px;
 }
-button {
-  font-weight: bold;
+button{
+  font-weight:bold;
 }
 </style>
 </head>
@@ -29,15 +29,16 @@ button {
 <input id="cantidad" type="number" placeholder="Cantidad">
 <input id="precio" type="number" step="0.01" placeholder="Precio">
 <input id="fecha" type="date">
+
 <br>
-<button onclick="guardar()">Guardar compra</button>
+
+<button id="btnGuardar" disabled>Guardar compra</button>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* ================= FIREBASE CONFIG ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBapig7o",
   authDomain: "gestor-acciones.firebaseapp.com",
@@ -54,25 +55,30 @@ const db = firebase.firestore();
 
 let uid = null;
 
-/* ================= LOGIN ANÓNIMO FORZADO ================= */
+// 🔐 LOGIN ANÓNIMO
+auth.signInAnonymously()
+  .then(() => {
+    console.log("Login anónimo iniciado");
+  })
+  .catch(err => {
+    alert("❌ Error de autenticación con Firebase");
+    console.error(err);
+  });
+
+// ✅ CUANDO YA HAY USUARIO
 auth.onAuthStateChanged(user => {
-  if (user) {
+  if(user){
     uid = user.uid;
-    console.log("✅ Usuario autenticado:", uid);
-  } else {
-    auth.signInAnonymously()
-      .then(() => console.log("🔐 Login anónimo iniciado"))
-      .catch(err => {
-        alert("❌ Error de autenticación con Firebase");
-        console.error(err);
-      });
+    console.log("Usuario autenticado:", uid);
+    document.getElementById("btnGuardar").disabled = false;
   }
 });
 
-/* ================= GUARDAR ================= */
-function guardar() {
-  if (!uid) {
-    alert("⏳ Espera un segundo, autenticando…");
+// 💾 GUARDAR
+document.getElementById("btnGuardar").onclick = function(){
+
+  if(!uid){
+    alert("⏳ Espera a que Firebase termine de cargar");
     return;
   }
 
@@ -81,29 +87,29 @@ function guardar() {
   const precio = Number(precioInput.value);
   const fecha = fechaInput.value;
 
-  if (!accion || !cantidad || !precio || !fecha) {
+  if(!accion || !cantidad || !precio || !fecha){
     alert("⚠️ Completa todos los campos");
     return;
   }
 
   db.collection("operaciones").add({
-    uid,
-    accion,
-    cantidad,
-    precio,
-    fecha,
+    uid: uid,
+    accion: accion,
+    cantidad: cantidad,
+    precioCompra: precio,
+    fechaCompra: fecha,
     creada: firebase.firestore.FieldValue.serverTimestamp()
   })
   .then(() => {
-    alert("✅ Guardado correctamente");
+    alert("✅ Compra guardada correctamente");
   })
   .catch(err => {
-    alert("❌ Error al guardar");
+    alert("❌ Error al guardar en Firestore");
     console.error(err);
   });
-}
+};
 
-/* ================= INPUTS ================= */
+// referencias inputs
 const accionInput = document.getElementById("accion");
 const cantidadInput = document.getElementById("cantidad");
 const precioInput = document.getElementById("precio");
