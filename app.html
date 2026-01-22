@@ -61,13 +61,37 @@ button{font-weight:bold}
 </div>
 
 <script>
-let abiertas = JSON.parse(localStorage.getItem("abiertas")) || [];
-let historico = JSON.parse(localStorage.getItem("historico")) || {};
+function guardar() {
+  const accion = document.getElementById("accion").value.trim();
+  const tipo = document.getElementById("tipo").value;
+  const cantidad = Number(document.getElementById("cantidad").value);
+  const precio = Number(document.getElementById("precio").value);
+  const fecha = document.getElementById("fecha").value;
 
-function guardar(){
-  localStorage.setItem("abiertas", JSON.stringify(abiertas));
-  localStorage.setItem("historico", JSON.stringify(historico));
+  if (!accion || !cantidad || !precio || !fecha) {
+    alert("⚠️ Completa todos los campos");
+    return;
+  }
+
+  db.collection("operaciones").add({
+    uid: uid,
+    accion: accion,
+    tipo: tipo,
+    cantidad: cantidad,
+    precio: precio,
+    total: cantidad * precio,
+    fecha: fecha,
+    creada: firebase.firestore.FieldValue.serverTimestamp()
+  })
+  .then(() => {
+    alert("✅ Operación guardada en la nube");
+  })
+  .catch(err => {
+    alert("❌ Error al guardar");
+    console.error(err);
+  });
 }
+</script>
 
 function ver(v){
   ["abiertas","mes","historico"].forEach(id=>{
