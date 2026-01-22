@@ -14,32 +14,36 @@
 <hr>
 
 <div id="app" style="display:none;">
-  <h3>Usuario autenticado</h3>
+  <h3>Usuario</h3>
   <pre id="userData"></pre>
 
-  <h3>Guardar acción</h3>
+  <h3>Nueva acción</h3>
   <button id="saveBtn">Guardar acción de prueba</button>
+
+  <h3>Mis acciones</h3>
+  <ul id="accionesList"></ul>
 </div>
 
 <script type="module">
-  // 🔹 Firebase SDK
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { 
-    getAuth, 
-    GoogleAuthProvider, 
-    signInWithPopup, 
-    signOut, 
-    onAuthStateChanged 
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-  import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    serverTimestamp 
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    query,
+    where,
+    onSnapshot,
+    serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  // 🔹 Configuración Firebase (LA TUYA)
+  // 🔹 Firebase config (TU PROYECTO)
   const firebaseConfig = {
     apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
     authDomain: "gestor-acciones.firebaseapp.com",
@@ -49,63 +53,74 @@
     appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
   };
 
-  // 🔹 Inicializar Firebase
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // 🔹 Elementos HTML
+  // DOM
   const loginBtn = document.getElementById("loginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
   const appDiv = document.getElementById("app");
   const userData = document.getElementById("userData");
   const saveBtn = document.getElementById("saveBtn");
+  const accionesList = document.getElementById("accionesList");
 
-  // 🔹 Login
+  // Login
   loginBtn.onclick = async () => {
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (e) {
-      alert(e.message);
-    }
+    await signInWithPopup(auth, provider);
   };
 
-  // 🔹 Logout
+  // Logout
   logoutBtn.onclick = async () => {
     await signOut(auth);
   };
 
-  // 🔹 Estado de sesión
+  // Estado sesión
   onAuthStateChanged(auth, (user) => {
-    if (user) {
-      loginBtn.style.display = "none";
-      logoutBtn.style.display = "inline";
-      appDiv.style.display = "block";
-
-      userData.textContent = JSON.stringify({
-        uid: user.uid,
-        email: user.email,
-        nombre: user.displayName
-      }, null, 2);
-
-      // Guardar acción
-      saveBtn.onclick = async () => {
-        await addDoc(collection(db, "acciones"), {
-          uid: user.uid,
-          email: user.email,
-          tipo: "COMPRA",
-          valor: 100,
-          fecha: serverTimestamp()
-        });
-        alert("Acción guardada en Firestore");
-      };
-
-    } else {
+    if (!user) {
       loginBtn.style.display = "inline";
       logoutBtn.style.display = "none";
       appDiv.style.display = "none";
+      return;
     }
+
+    loginBtn.style.display = "none";
+    logoutBtn.style.display = "inline";
+    appDiv.style.display = "block";
+
+    userData.textContent = JSON.stringify({
+      uid: user.uid,
+      email: user.email,
+      nombre: user.displayName
+    }, null, 2);
+
+    // Guardar acción
+    saveBtn.onclick = async () => {
+      await addDoc(collection(db, "acciones"), {
+        uid: user.uid,
+        email: user.email,
+        tipo: "COMPRA",
+        valor: Math.floor(Math.random() * 1000),
+        fecha: serverTimestamp()
+      });
+    };
+
+    // 🔥 LISTAR SOLO SUS ACCIONES
+    const q = query(
+      collection(db, "acciones"),
+      where("uid", "==", user.uid)
+    );
+
+    onSnapshot(q, (snapshot) => {
+      accionesList.innerHTML = "";
+      snapshot.forEach((doc) => {
+        const a = doc.data();
+        const li = document.createElement("li");
+        li.textContent = `${a.tipo} — ${a.valor} €`;
+        accionesList.appendChild(li);
+      });
+    });
   });
 </script>
 
