@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <title>Gestor de Acciones</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -14,11 +13,12 @@
       margin: 5px 0;
       cursor: pointer;
     }
-    #userData {
-      margin-top: 20px;
+    #app {
+      display: none;
+    }
+    pre {
       background: #f4f4f4;
-      padding: 15px;
-      border-radius: 5px;
+      padding: 10px;
     }
   </style>
 </head>
@@ -27,17 +27,18 @@
   <h1>Gestor de Acciones</h1>
 
   <!-- LOGIN -->
-  <div id="loginSection">
+  <div id="login">
     <p>Inicia sesión con Google para continuar</p>
     <button onclick="loginGoogle()">Iniciar sesión con Google</button>
   </div>
 
-  <!-- USUARIO LOGUEADO -->
-  <div id="appSection" style="display:none;">
-    <p><strong>Sesión iniciada</strong></p>
+  <!-- APP -->
+  <div id="app">
+    <p id="userInfo"></p>
     <button onclick="logout()">Cerrar sesión</button>
 
-    <div id="userData"></div>
+    <h3>Datos del usuario</h3>
+    <pre id="userData"></pre>
   </div>
 
   <!-- FIREBASE -->
@@ -47,13 +48,13 @@
       getAuth,
       GoogleAuthProvider,
       signInWithPopup,
-      signOut,
-      onAuthStateChanged
+      onAuthStateChanged,
+      signOut
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    // 🔐 CONFIGURACIÓN FIREBASE
+    // ⚠️ TU CONFIG REAL (la tuya)
     const firebaseConfig = {
-      apiKey: "AIzaSyD3XGLrrvUTNHqk8P0gU8ROeyKBApig7o",
+      apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8R0eyKBApig7o",
       authDomain: "gestor-acciones.firebaseapp.com",
       projectId: "gestor-acciones",
       storageBucket: "gestor-acciones.appspot.com",
@@ -61,45 +62,47 @@
       appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
     };
 
-    // 🚀 INIT
+    // Init
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
 
-    // 🔑 LOGIN
+    // LOGIN
     window.loginGoogle = async () => {
       try {
         await signInWithPopup(auth, provider);
       } catch (e) {
-        alert("Error de login: " + e.message);
+        alert("Error login: " + e.message);
       }
     };
 
-    // 🚪 LOGOUT
+    // LOGOUT
     window.logout = async () => {
       await signOut(auth);
     };
 
-    // 👤 ESTADO DE SESIÓN
+    // ESTADO DE SESIÓN
     onAuthStateChanged(auth, (user) => {
-      const loginSection = document.getElementById("loginSection");
-      const appSection = document.getElementById("appSection");
-      const userData = document.getElementById("userData");
+      const login = document.getElementById("login");
+      const appDiv = document.getElementById("app");
 
       if (user) {
-        loginSection.style.display = "none";
-        appSection.style.display = "block";
+        login.style.display = "none";
+        appDiv.style.display = "block";
 
-        userData.innerHTML = `
-<pre>{
-  "uid": "${user.uid}",
-  "email": "${user.email}",
-  "nombre": "${user.displayName}"
-}</pre>`;
+        document.getElementById("userInfo").innerText =
+          `Conectado como ${user.displayName}`;
+
+        document.getElementById("userData").textContent =
+          JSON.stringify({
+            uid: user.uid,
+            email: user.email,
+            nombre: user.displayName
+          }, null, 2);
+
       } else {
-        loginSection.style.display = "block";
-        appSection.style.display = "none";
-        userData.innerHTML = "";
+        login.style.display = "block";
+        appDiv.style.display = "none";
       }
     });
   </script>
