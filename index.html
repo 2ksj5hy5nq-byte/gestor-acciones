@@ -26,6 +26,10 @@ button {
 button.danger {
   background: #c0392b;
 }
+button.edit {
+  background: #f59e0b;
+  margin-bottom: 4px;
+}
 table {
   width: 100%;
   margin-top: 15px;
@@ -35,6 +39,7 @@ th, td {
   border-bottom: 1px solid #334155;
   padding: 6px;
   text-align: center;
+  font-size: 14px;
 }
 .total {
   font-size: 18px;
@@ -54,7 +59,6 @@ th, td {
 </select>
 <input id="cantidad" type="number" placeholder="Cantidad">
 <input id="precio" type="number" step="0.01" placeholder="Precio">
-<input id="fecha" type="date">
 
 <button onclick="guardar()">Guardar operación</button>
 <button class="danger" onclick="borrarTodo()">🗑 Borrar todo</button>
@@ -69,6 +73,7 @@ th, td {
   <th>Cant.</th>
   <th>Precio</th>
   <th>Total</th>
+  <th>Editar</th>
 </tr>
 </thead>
 <tbody id="tabla"></tbody>
@@ -76,6 +81,7 @@ th, td {
 
 <script>
 let ops = JSON.parse(localStorage.getItem("ops")) || [];
+let editIndex = null;
 
 function guardar() {
   const accion = document.getElementById("accion").value;
@@ -91,17 +97,34 @@ function guardar() {
   const signo = tipo === "VENTA" ? -1 : 1;
   const total = cantidad * precio * signo;
 
-  ops.push({ accion, tipo, cantidad, precio, total });
-  localStorage.setItem("ops", JSON.stringify(ops));
+  const data = { accion, tipo, cantidad, precio, total };
 
+  if (editIndex !== null) {
+    ops[editIndex] = data;
+    editIndex = null;
+  } else {
+    ops.push(data);
+  }
+
+  localStorage.setItem("ops", JSON.stringify(ops));
   limpiar();
   render();
+}
+
+function editar(i) {
+  const o = ops[i];
+  document.getElementById("accion").value = o.accion;
+  document.getElementById("tipo").value = o.tipo;
+  document.getElementById("cantidad").value = o.cantidad;
+  document.getElementById("precio").value = o.precio;
+  editIndex = i;
 }
 
 function borrarTodo() {
   if (!confirm("¿Seguro que quieres borrar todo?")) return;
   localStorage.removeItem("ops");
   ops = [];
+  editIndex = null;
   render();
 }
 
@@ -116,7 +139,7 @@ function render() {
   tabla.innerHTML = "";
   let suma = 0;
 
-  ops.forEach(o => {
+  ops.forEach((o, i) => {
     suma += o.total;
     tabla.innerHTML += `
       <tr>
@@ -125,6 +148,9 @@ function render() {
         <td>${o.cantidad}</td>
         <td>${o.precio}</td>
         <td>${o.total.toFixed(2)} €</td>
+        <td>
+          <button class="edit" onclick="editar(${i})">✏️</button>
+        </td>
       </tr>
     `;
   });
