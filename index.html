@@ -6,168 +6,165 @@
   <style>
     body {
       font-family: Arial, sans-serif;
+      margin: 40px;
       max-width: 600px;
-      margin: 40px auto;
     }
     input, select, button {
       width: 100%;
-      margin: 6px 0;
       padding: 8px;
+      margin: 6px 0;
     }
-    .accion {
-      border-bottom: 1px solid #ddd;
-      padding: 6px 0;
+    button {
+      cursor: pointer;
+    }
+    hr {
+      margin: 20px 0;
     }
   </style>
 </head>
 <body>
 
-  <h1>Gestor de Acciones</h1>
+<h1>Gestor de Acciones</h1>
 
-  <button id="loginBtn">Iniciar sesión con Google</button>
-  <p id="usuario"></p>
+<button id="loginBtn">Iniciar sesión con Google</button>
+<p id="userInfo"></p>
 
-  <h2>Nueva acción</h2>
+<hr>
 
-  <input id="nombre" placeholder="Nombre de la acción" />
-  
-  <select id="tipo">
-    <option value="Compra">Compra</option>
-    <option value="Venta">Venta</option>
-  </select>
+<h2>Nueva acción</h2>
 
-  <input id="cantidad" type="number" placeholder="Número de acciones" />
-  <input id="precio" type="number" step="0.01" placeholder="Precio por acción (€)" />
+<input id="nombre" placeholder="Nombre de la acción" />
 
-  <p><strong>Total:</strong> <span id="total">0</span> €</p>
+<select id="tipo">
+  <option value="Compra">Compra</option>
+  <option value="Venta">Venta</option>
+</select>
 
-  <button id="guardarBtn">Guardar acción</button>
+<input id="cantidad" type="number" placeholder="Número de acciones" />
+<input id="precio" type="number" step="0.01" placeholder="Precio por acción (€)" />
 
-  <h2>Mis acciones</h2>
-  <div id="acciones"></div>
+<p><strong>Total:</strong> <span id="total">0</span> €</p>
 
-  <h2>Resumen</h2>
-  <p><strong>Resultado total:</strong> <span id="resumen">0</span> €</p>
+<button id="guardarBtn">Guardar acción</button>
 
-  <!-- Firebase -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, where, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+<hr>
 
-    // 🔴 PEGA AQUÍ TU CONFIGURACIÓN REAL DE FIREBASE
-    const firebaseConfig = {
-      apiKey: "PEGA_AQUI_TU_API_KEY_REAL",
-      authDomain: "gestor-acciones.firebaseapp.com",
-      projectId: "gestor-acciones",
-      storageBucket: "gestor-acciones.appspot.com",
-      messagingSenderId: "682376422747",
-      appId: "PEGA_AQUI_TU_APP_ID_REAL"
-    };
+<h2>Resumen</h2>
+<p><strong>Resultado total:</strong> <span id="resumen">0</span> €</p>
 
-    // ✅ Inicialización CORRECTA
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
+<script type="module">
+  // ===============================
+  // IMPORTS FIREBASE (CDN)
+  // ===============================
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-    const loginBtn = document.getElementById("loginBtn");
-    const usuarioEl = document.getElementById("usuario");
-    const guardarBtn = document.getElementById("guardarBtn");
+  // ===============================
+  // CONFIGURACIÓN FIREBASE (CORRECTA)
+  // ===============================
+  const firebaseConfig = {
+    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8R0eyKBApig7o",
+    authDomain: "gestor-acciones.firebaseapp.com",
+    projectId: "gestor-acciones",
+    storageBucket: "gestor-acciones.appspot.com",
+    messagingSenderId: "682376422747",
+    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+  };
 
-    const nombreEl = document.getElementById("nombre");
-    const tipoEl = document.getElementById("tipo");
-    const cantidadEl = document.getElementById("cantidad");
-    const precioEl = document.getElementById("precio");
-    const totalEl = document.getElementById("total");
+  // ===============================
+  // INIT
+  // ===============================
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
 
-    const accionesEl = document.getElementById("acciones");
-    const resumenEl = document.getElementById("resumen");
+  let currentUser = null;
 
-    let usuarioActual = null;
+  // ===============================
+  // LOGIN
+  // ===============================
+  document.getElementById("loginBtn").onclick = async () => {
+    await signInWithPopup(auth, provider);
+  };
 
-    // 🔢 Cálculo en tiempo real
-    function calcularTotal() {
-      const c = Number(cantidadEl.value) || 0;
-      const p = Number(precioEl.value) || 0;
-      totalEl.textContent = (c * p).toFixed(2);
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      currentUser = user;
+      document.getElementById("userInfo").innerText = user.email;
+      escucharAcciones();
+    }
+  });
+
+  // ===============================
+  // CALCULAR TOTAL EN VIVO
+  // ===============================
+  const cantidadInput = document.getElementById("cantidad");
+  const precioInput = document.getElementById("precio");
+  const totalSpan = document.getElementById("total");
+
+  function calcularTotal() {
+    const cantidad = Number(cantidadInput.value);
+    const precio = Number(precioInput.value);
+    const total = cantidad * precio || 0;
+    totalSpan.innerText = total.toFixed(2);
+  }
+
+  cantidadInput.oninput = calcularTotal;
+  precioInput.oninput = calcularTotal;
+
+  // ===============================
+  // GUARDAR ACCIÓN
+  // ===============================
+  document.getElementById("guardarBtn").onclick = async () => {
+    if (!currentUser) return alert("Inicia sesión primero");
+
+    const nombre = document.getElementById("nombre").value;
+    const tipo = document.getElementById("tipo").value;
+    const cantidad = Number(cantidadInput.value);
+    const precio = Number(precioInput.value);
+    const total = cantidad * precio;
+
+    if (!nombre || !cantidad || !precio) {
+      return alert("Rellena todos los campos");
     }
 
-    cantidadEl.addEventListener("input", calcularTotal);
-    precioEl.addEventListener("input", calcularTotal);
-
-    // 🔐 Login
-    loginBtn.onclick = async () => {
-      await signInWithPopup(auth, provider);
-    };
-
-    // 👤 Estado usuario
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
-
-      usuarioActual = user;
-      usuarioEl.textContent = user.email;
-      loginBtn.style.display = "none";
-
-      cargarAcciones();
+    await addDoc(collection(db, "acciones"), {
+      uid: currentUser.uid,
+      nombre,
+      tipo,
+      cantidad,
+      precio,
+      total,
+      fecha: new Date()
     });
 
-    // 💾 Guardar acción
-    guardarBtn.onclick = async () => {
-      if (!usuarioActual) return;
+    document.getElementById("nombre").value = "";
+    cantidadInput.value = "";
+    precioInput.value = "";
+    totalSpan.innerText = "0";
+  };
 
-      const cantidad = Number(cantidadEl.value);
-      const precio = Number(precioEl.value);
-      const total = cantidad * precio;
+  // ===============================
+  // RESUMEN TOTAL
+  // ===============================
+  function escucharAcciones() {
+    const q = query(
+      collection(db, "acciones"),
+      where("uid", "==", currentUser.uid)
+    );
 
-      await addDoc(collection(db, "acciones"), {
-        uid: usuarioActual.uid,
-        nombre: nombreEl.value,
-        tipo: tipoEl.value,
-        cantidad,
-        precio,
-        total,
-        fecha: serverTimestamp()
-      });
-
-      nombreEl.value = "";
-      cantidadEl.value = "";
-      precioEl.value = "";
-      totalEl.textContent = "0";
-
-      cargarAcciones();
-    };
-
-    // 📥 Cargar acciones
-    async function cargarAcciones() {
-      accionesEl.innerHTML = "";
-      resumenEl.textContent = "0";
-
+    onSnapshot(q, (snapshot) => {
       let suma = 0;
-
-      const q = query(
-        collection(db, "acciones"),
-        where("uid", "==", usuarioActual.uid),
-        orderBy("fecha", "desc")
-      );
-
-      const snap = await getDocs(q);
-
-      snap.forEach(doc => {
-        const a = doc.data();
-        suma += a.tipo === "Compra" ? -a.total : a.total;
-
-        accionesEl.innerHTML += `
-          <div class="accion">
-            ${a.tipo} - ${a.nombre} |
-            ${a.cantidad} × ${a.precio} € = <strong>${a.total} €</strong>
-          </div>
-        `;
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        suma += data.tipo === "Compra" ? -data.total : data.total;
       });
-
-      resumenEl.textContent = suma.toFixed(2);
-    }
-  </script>
+      document.getElementById("resumen").innerText = suma.toFixed(2);
+    });
+  }
+</script>
 
 </body>
 </html>
