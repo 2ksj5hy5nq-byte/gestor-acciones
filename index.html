@@ -28,17 +28,14 @@ button {
   background:#020617;
   padding:12px;
   border-radius:10px;
-  margin-top:15px;
+  margin-bottom:15px;
 }
 .row {
   display:flex;
   justify-content:space-between;
-  margin:4px 0;
+  align-items:center;
 }
-.small {
-  font-size:14px;
-  opacity:.8;
-}
+.small { opacity:.8; font-size:14px }
 </style>
 </head>
 
@@ -54,32 +51,34 @@ button {
   <input id="precio" type="number" step="0.01" placeholder="Precio compra">
   <input id="fechaCompra" type="date">
 
-  <button id="guardar">Guardar compra</button>
+  <button onclick="guardarCompra()">Guardar compra</button>
 </div>
 
 <div class="card">
-  <h3>Operaciones abiertas</h3>
+  <h3>📂 Operaciones abiertas</h3>
   <div id="abiertas"></div>
 </div>
 
 <div class="card">
-  <h3>Resumen</h3>
+  <h3>📊 Resumen</h3>
   <div id="resumen"></div>
 </div>
 
 <script>
-// ================= ESTADO =================
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
 
-// ================= GUARDAR =================
-document.getElementById("guardar").addEventListener("click", () => {
-  const accion = accionInput.value.trim();
-  const cantidad = Number(cantidadInput.value);
-  const precio = Number(precioInput.value);
-  const fecha = fechaCompra.value;
+function guardarEstado() {
+  localStorage.setItem("ops", JSON.stringify(operaciones));
+}
 
-  if (!accion || !cantidad || !precio || !fecha) {
-    alert("Datos incompletos");
+function guardarCompra() {
+  const accion = document.getElementById("accion").value.trim();
+  const cantidad = Number(document.getElementById("cantidad").value);
+  const precio = Number(document.getElementById("precio").value);
+  const fechaCompra = document.getElementById("fechaCompra").value;
+
+  if (!accion || !cantidad || !precio || !fechaCompra) {
+    alert("Completa todos los datos");
     return;
   }
 
@@ -87,56 +86,52 @@ document.getElementById("guardar").addEventListener("click", () => {
     id: crypto.randomUUID(),
     accion,
     cantidad,
-    precio,
-    fechaCompra: fecha,
+    precioCompra: precio,
+    fechaCompra,
     abierta: true,
-    fechaVenta: null,
-    precioVenta: null
+    precioVenta: null,
+    fechaVenta: null
   });
-
-  guardarEstado();
-  limpiar();
-  render();
-});
-
-// ================= CERRAR =================
-function cerrar(id) {
-  const precioVenta = prompt("Precio de venta:");
-  const fechaVenta = prompt("Fecha venta (YYYY-MM-DD):");
-
-  if (!precioVenta || !fechaVenta) return;
-
-  const o = operaciones.find(x => x.id === id);
-  o.precioVenta = Number(precioVenta);
-  o.fechaVenta = fechaVenta;
-  o.abierta = false;
 
   guardarEstado();
   render();
 }
 
-// ================= RENDER =================
+function cerrarOperacion(id) {
+  const precioVenta = prompt("Precio de venta:");
+  const fechaVenta = prompt("Fecha de venta (YYYY-MM-DD):");
+
+  if (!precioVenta || !fechaVenta) return;
+
+  const op = operaciones.find(o => o.id === id);
+  if (!op) return;
+
+  op.precioVenta = Number(precioVenta);
+  op.fechaVenta = fechaVenta;
+  op.abierta = false;
+
+  guardarEstado();
+  render();
+}
+
 function render() {
   renderAbiertas();
   renderResumen();
 }
 
 function renderAbiertas() {
-  const c = document.getElementById("abiertas");
-  c.innerHTML = "";
+  const cont = document.getElementById("abiertas");
+  cont.innerHTML = "";
 
   operaciones.filter(o => o.abierta).forEach(o => {
-    const total = o.cantidad * o.precio;
-    c.innerHTML += `
+    cont.innerHTML += `
       <div class="row">
         <div>
-          <b>${o.accion}</b><br>
-          <span class="small">${o.cantidad} × ${o.precio} €</span>
+          <strong>${o.accion}</strong><br>
+          <span class="small">${o.cantidad} × ${o.precioCompra} €</span><br>
+          <span class="small">Compra: ${o.fechaCompra}</span>
         </div>
-        <div>
-          ${total.toFixed(2)} €<br>
-          <button onclick="cerrar('${o.id}')">Cerrar</button>
-        </div>
+        <button onclick="cerrarOperacion('${o.id}')">Cerrar</button>
       </div>
       <hr>
     `;
@@ -148,7 +143,7 @@ function renderResumen() {
   let recuperado = 0;
 
   operaciones.forEach(o => {
-    invertido += o.cantidad * o.precio;
+    invertido += o.cantidad * o.precioCompra;
     if (!o.abierta) {
       recuperado += o.cantidad * o.precioVenta;
     }
@@ -161,24 +156,6 @@ function renderResumen() {
   `;
 }
 
-// ================= UTILS =================
-function guardarEstado() {
-  localStorage.setItem("ops", JSON.stringify(operaciones));
-}
-function limpiar() {
-  accionInput.value = "";
-  cantidadInput.value = "";
-  precioInput.value = "";
-  fechaCompra.value = "";
-}
-
-// ================= DOM =================
-const accionInput = document.getElementById("accion");
-const cantidadInput = document.getElementById("cantidad");
-const precioInput = document.getElementById("precio");
-const fechaCompra = document.getElementById("fechaCompra");
-
-// ================= INIT =================
 render();
 </script>
 
