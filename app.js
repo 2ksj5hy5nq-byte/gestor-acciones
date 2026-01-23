@@ -1,12 +1,12 @@
-// ================== FIREBASE ==================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+
 import {
   getAuth,
   GoogleAuthProvider,
   signInWithRedirect,
-  getRedirectResult,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
 import {
   getFirestore,
   collection,
@@ -16,7 +16,7 @@ import {
   getDocs
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// CONFIG (la tuya, correcta)
+// ================= CONFIG =================
 const firebaseConfig = {
   apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROevKBApig7o",
   authDomain: "gestor-acciones.firebaseapp.com",
@@ -26,12 +26,13 @@ const firebaseConfig = {
   appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
 };
 
+// ================= INIT =================
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// ================== DOM ==================
+// ================= DOM =================
 const loginBtn = document.getElementById("loginBtn");
 const userP = document.getElementById("user");
 const saveBtn = document.getElementById("saveBtn");
@@ -44,38 +45,37 @@ const precioInput = document.getElementById("precio");
 const totalSpan = document.getElementById("total");
 const resumenP = document.getElementById("resumen");
 
-// ================== LOGIN (MÓVIL OK) ==================
+// ================= LOGIN (MÓVIL) =================
 loginBtn.onclick = () => {
   signInWithRedirect(auth, provider);
 };
 
-getRedirectResult(auth).catch(console.error);
-
-// ================== AUTH STATE ==================
-onAuthStateChanged(auth, (user) => {
+// ================= AUTH STATE =================
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     userP.textContent = user.email;
-    cargarResumen(user.uid);
+    await cargarResumen(user.uid);
   } else {
     userP.textContent = "";
+    resumenP.textContent = "Resultado total: 0 €";
   }
 });
 
-// ================== CALCULAR TOTAL ==================
+// ================= CALCULAR TOTAL =================
 [cantidadInput, precioInput, tipoSelect].forEach(el => {
   el.oninput = () => {
-    const cantidad = Number(cantidadInput.value);
-    const precio = Number(precioInput.value);
-    if (!cantidad || !precio) {
+    const c = Number(cantidadInput.value);
+    const p = Number(precioInput.value);
+    if (!c || !p) {
       totalSpan.textContent = "0";
       return;
     }
     const signo = tipoSelect.value === "VENTA" ? -1 : 1;
-    totalSpan.textContent = cantidad * precio * signo;
+    totalSpan.textContent = c * p * signo;
   };
 });
 
-// ================== GUARDAR ==================
+// ================= GUARDAR =================
 saveBtn.onclick = async () => {
   const user = auth.currentUser;
   if (!user) {
@@ -85,7 +85,8 @@ saveBtn.onclick = async () => {
 
   const cantidad = Number(cantidadInput.value);
   const precio = Number(precioInput.value);
-  if (!cantidad || !precio || !nombreInput.value) {
+
+  if (!nombreInput.value || !cantidad || !precio) {
     alert("Datos incompletos");
     return;
   }
@@ -106,14 +107,16 @@ saveBtn.onclick = async () => {
   precioInput.value = "";
   totalSpan.textContent = "0";
 
-  cargarResumen(user.uid);
+  await cargarResumen(user.uid);
 };
 
-// ================== RESUMEN ==================
+// ================= RESUMEN =================
 async function cargarResumen(uid) {
   const q = query(collection(db, "acciones"), where("uid", "==", uid));
   const snap = await getDocs(q);
+
   let total = 0;
-  snap.forEach(doc => total += doc.data().valor);
+  snap.forEach(d => total += d.data().valor);
+
   resumenP.textContent = `Resultado total: ${total} €`;
 }
