@@ -6,38 +6,43 @@
 <title>Gestor de Acciones</title>
 
 <style>
-body{
+body {
   background:#0f172a;
   color:white;
   font-family:Arial;
   padding:15px;
 }
-input,button{
+input,button {
   width:100%;
-  padding:8px;
-  margin:4px 0;
-  border-radius:6px;
+  padding:10px;
+  margin:6px 0;
+  border-radius:8px;
   border:none;
 }
-button{
+button {
   background:#22c55e;
   font-weight:bold;
 }
-.card{
+.card {
   background:#020617;
   padding:12px;
   border-radius:10px;
   margin-bottom:15px;
 }
-.row{
+.row {
   display:flex;
   justify-content:space-between;
   gap:10px;
 }
-.small{font-size:13px;opacity:.8}
-hr{border:0;border-top:1px solid #334155;margin:10px 0}
-.ganancia{color:#22c55e}
-.perdida{color:#ef4444}
+.small {
+  font-size:13px;
+  opacity:.8;
+}
+hr {
+  border:0;
+  border-top:1px solid #334155;
+  margin:10px 0;
+}
 </style>
 </head>
 
@@ -46,150 +51,135 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 <h2>📈 Gestor de Acciones</h2>
 
 <div class="card">
-<h3>Nueva compra</h3>
-<input id="accion" placeholder="Acción">
-<input id="cantidad" type="number" placeholder="Cantidad">
-<input id="precioCompra" type="number" step="0.01" placeholder="Precio compra">
-<input id="fechaCompra" type="date">
-<button id="btnGuardar">Guardar compra</button>
+  <h3>Nueva compra</h3>
+  <input id="accion" placeholder="Acción">
+  <input id="cantidad" type="number" placeholder="Cantidad">
+  <input id="precioCompra" type="number" step="0.01" placeholder="Precio compra">
+  <input id="fechaCompra" type="date">
+  <button id="btnGuardar">Guardar compra</button>
 </div>
 
 <div class="card">
-<h3>📂 Operaciones abiertas</h3>
-<div id="abiertas"></div>
+  <h3>📂 Operaciones abiertas</h3>
+  <div id="abiertas"></div>
 </div>
 
 <div class="card">
-<h3>📁 Operaciones cerradas (por mes)</h3>
-<div id="cerradas"></div>
-</div>
-
-<div class="card">
-<h3>📊 Resumen</h3>
-<div id="resumen"></div>
+  <h3>📊 Resumen (solo cerradas)</h3>
+  <div id="resumen"></div>
 </div>
 
 <script>
-/* ========= ESTADO ÚNICO (NO CARPETAS) ========= */
+// ================== ESTADO ÚNICO ==================
 let ops = JSON.parse(localStorage.getItem("ops")) || [];
 
-/* ========= UTIL ========= */
-const € = n => Number(n).toFixed(2)+" €";
+// ================== UTIL ==================
+const € = n => Number(n).toFixed(2) + " €";
 const save = () => localStorage.setItem("ops", JSON.stringify(ops));
 
-/* ========= GUARDAR COMPRA (ESTABLE) ========= */
-document.getElementById("btnGuardar").addEventListener("click", ()=>{
-  const a = accion.value.trim();
-  const c = +cantidad.value;
-  const p = +precioCompra.value;
-  const f = fechaCompra.value;
+// ================== ELEMENTOS ==================
+const accionInput = document.getElementById("accion");
+const cantidadInput = document.getElementById("cantidad");
+const precioInput = document.getElementById("precioCompra");
+const fechaInput = document.getElementById("fechaCompra");
+const btnGuardar = document.getElementById("btnGuardar");
+const abiertasDiv = document.getElementById("abiertas");
+const resumenDiv = document.getElementById("resumen");
 
-  if(!a||!c||!p||!f){ alert("Completa todos los campos"); return; }
+// ================== GUARDAR COMPRA (PURO) ==================
+btnGuardar.addEventListener("click", () => {
+  const accion = accionInput.value.trim();
+  const cantidad = Number(cantidadInput.value);
+  const precio = Number(precioInput.value);
+  const fecha = fechaInput.value;
+
+  if (!accion || !cantidad || !precio || !fecha) {
+    alert("Completa todos los campos");
+    return;
+  }
 
   ops.push({
     id: Date.now(),
-    accion:a,
-    cantidad:c,
-    precioCompra:p,
-    fechaCompra:f,
-    abierta:true,
-    precioVenta:null,
-    fechaVenta:null
+    accion,
+    cantidad,
+    precioCompra: precio,
+    fechaCompra: fecha,
+    abierta: true,
+    precioVenta: null,
+    fechaVenta: null
   });
 
   save();
-  accion.value=cantidad.value=precioCompra.value=fechaCompra.value="";
+
+  accionInput.value = "";
+  cantidadInput.value = "";
+  precioInput.value = "";
+  fechaInput.value = "";
+
   render();
 });
 
-/* ========= CERRAR OPERACIÓN ========= */
-function cerrar(id){
-  const o = ops.find(x=>x.id===id);
-  if(!o.precioVenta || !o.fechaVenta){
+// ================== CERRAR OPERACIÓN ==================
+function cerrarOperacion(id) {
+  const o = ops.find(x => x.id === id);
+  if (!o.precioVenta || !o.fechaVenta) {
     alert("Introduce precio y fecha de venta");
     return;
   }
-  o.abierta=false;
+  o.abierta = false;
   save();
   render();
 }
 
-/* ========= RENDER ========= */
-function render(){
+// ================== RENDER ==================
+function render() {
   renderAbiertas();
-  renderCerradas();
   renderResumen();
 }
 
-/* ========= ABIERTAS ========= */
-function renderAbiertas(){
-  abiertas.innerHTML="";
-  ops.filter(o=>o.abierta).forEach(o=>{
-    abiertas.innerHTML+=`
-    <div class="row">
-      <div>
-        <b>${o.accion}</b><br>
-        <span class="small">
-          <input type="number" value="${o.cantidad}" 
-            onchange="o.cantidad=+this.value;save();render()">
-          ×
-          <input type="number" step="0.01" value="${o.precioCompra}" 
-            onchange="o.precioCompra=+this.value;save();render()">
-        </span><br>
-        <input type="date" value="${o.fechaCompra}" 
-          onchange="o.fechaCompra=this.value;save()">
+function renderAbiertas() {
+  abiertasDiv.innerHTML = "";
+
+  ops.filter(o => o.abierta).forEach(o => {
+    abiertasDiv.innerHTML += `
+      <div class="row">
+        <div>
+          <b>${o.accion}</b><br>
+          <span class="small">${o.cantidad} × ${€(o.precioCompra)}</span><br>
+          <input type="number" step="0.01" placeholder="Precio venta"
+            onchange="oPrecioVenta(${o.id}, this.value)">
+          <input type="date"
+            onchange="oFechaVenta(${o.id}, this.value)">
+        </div>
+        <button onclick="cerrarOperacion(${o.id})">Cerrar</button>
       </div>
-      <div>
-        <input type="number" step="0.01" placeholder="Precio venta"
-          onchange="o.precioVenta=+this.value;save()">
-        <input type="date"
-          onchange="o.fechaVenta=this.value;save()">
-        <button onclick="cerrar(${o.id})">Cerrar</button>
-      </div>
-    </div><hr>`;
+      <hr>
+    `;
   });
 }
 
-/* ========= CERRADAS (AGRUPADAS SOLO AL MOSTRAR) ========= */
-function renderCerradas(){
-  cerradas.innerHTML="";
-  const grupos={};
-
-  ops.filter(o=>!o.abierta).forEach(o=>{
-    const mes=o.fechaVenta.slice(0,7);
-    if(!grupos[mes]) grupos[mes]=[];
-    grupos[mes].push(o);
+function renderResumen() {
+  let total = 0;
+  ops.filter(o => !o.abierta).forEach(o => {
+    total += (o.precioVenta - o.precioCompra) * o.cantidad;
   });
 
-  Object.entries(grupos).forEach(([mes,lista])=>{
-    let total=0;
-    let html=`<b>${mes}</b><br>`;
-    lista.forEach(o=>{
-      const r=(o.precioVenta-o.precioCompra)*o.cantidad;
-      total+=r;
-      html+=`${o.accion}: ${€(r)}<br>`;
-    });
-    html+=`<b class="${total>=0?'ganancia':'perdida'}">
-      Total mes: ${€(total)}</b><hr>`;
-    cerradas.innerHTML+=html;
-  });
-}
-
-/* ========= RESUMEN ========= */
-function renderResumen(){
-  let inv=0,rec=0;
-  ops.forEach(o=>{
-    inv+=o.cantidad*o.precioCompra;
-    if(!o.abierta) rec+=o.cantidad*o.precioVenta;
-  });
-
-  resumen.innerHTML=`
-    Capital invertido: ${€(inv)}<br>
-    Capital recuperado: ${€(rec)}<br>
-    Resultado total: ${€(rec-inv)}
+  resumenDiv.innerHTML = `
+    Resultado total (cerradas): ${€(total)}
   `;
 }
 
+// ================== EDITORES ==================
+function oPrecioVenta(id, v) {
+  ops.find(o => o.id === id).precioVenta = Number(v);
+  save();
+}
+function oFechaVenta(id, v) {
+  ops.find(o => o.id === id).fechaVenta = v;
+  save();
+}
+
+// ================== INIT ==================
 render();
 </script>
 
