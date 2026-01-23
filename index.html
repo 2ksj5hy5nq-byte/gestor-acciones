@@ -4,25 +4,23 @@
   <meta charset="UTF-8" />
   <title>Gestor de Acciones</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    h1, h2, h3 { margin-top: 20px; }
+    body { font-family: Arial, sans-serif; margin: 30px; }
     input, select, button { margin: 5px 0; }
     ul { margin-left: 20px; }
-    pre { background: #f4f4f4; padding: 10px; }
   </style>
 </head>
 <body>
 
 <h1>Gestor de Acciones</h1>
 
-<button id="loginBtn">Iniciar sesión con Google</button>
-<button id="logoutBtn" style="display:none;">Cerrar sesión</button>
+<button id="login">Iniciar sesión con Google</button>
+<button id="logout" style="display:none;">Cerrar sesión</button>
 
-<h2>Usuario</h2>
-<pre id="userInfo"></pre>
+<h3>Usuario</h3>
+<pre id="usuario"></pre>
 
-<h2>Nueva acción</h2>
-<input id="nombreAccion" placeholder="Nombre de la acción" />
+<h3>Nueva acción</h3>
+<input id="nombre" placeholder="Nombre de la acción" />
 <br>
 <select id="tipo">
   <option value="COMPRA">Compra</option>
@@ -31,40 +29,27 @@
 <br>
 <input id="importe" type="number" placeholder="Importe €" />
 <br>
-<button id="guardarBtn">Guardar acción</button>
+<button id="guardar">Guardar acción</button>
 
-<h2>Mis acciones</h2>
+<h3>Mis acciones</h3>
 <div id="listaAcciones"></div>
 
-<h2>Resumen</h2>
-<div id="resumen"></div>
+<h3>Resumen</h3>
+<p id="resumen">Resultado total: 0 €</p>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signOut,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import {
-    getFirestore,
-    collection,
-    addDoc,
-    query,
-    where,
-    orderBy,
-    getDocs,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } 
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, collection, addDoc, query, where, orderBy, getDocs } 
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // 🔹 CONFIGURACIÓN CORRECTA (la de tu captura)
+  // 🔑 CONFIGURACIÓN FIREBASE (API KEY NUEVA)
   const firebaseConfig = {
-    apiKey: "AIzaSyD3XGLrrVTNHqk8P0gU8ROeyKBApig7o",
+    apiKey: "PEGA_AQUI_TU_API_KEY_NUEVA",
     authDomain: "gestor-acciones.firebaseapp.com",
     projectId: "gestor-acciones",
-    storageBucket: "gestor-acciones.firebasestorage.app",
+    storageBucket: "gestor-acciones.appspot.com",
     messagingSenderId: "682376422747",
     appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
   };
@@ -74,57 +59,64 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  let usuario = null;
+  const loginBtn = document.getElementById("login");
+  const logoutBtn = document.getElementById("logout");
+  const usuarioPre = document.getElementById("usuario");
 
-  const loginBtn = document.getElementById("loginBtn");
-  const logoutBtn = document.getElementById("logoutBtn");
-  const userInfo = document.getElementById("userInfo");
+  let user = null;
 
-  loginBtn.onclick = () => signInWithPopup(auth, provider);
-  logoutBtn.onclick = () => signOut(auth);
+  loginBtn.onclick = async () => {
+    await signInWithPopup(auth, provider);
+  };
 
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      usuario = user;
+  logoutBtn.onclick = async () => {
+    await signOut(auth);
+  };
+
+  onAuthStateChanged(auth, u => {
+    user = u;
+    if (u) {
       loginBtn.style.display = "none";
-      logoutBtn.style.display = "inline-block";
-      userInfo.textContent = JSON.stringify({
-        uid: user.uid,
-        email: user.email,
-        nombre: user.displayName
+      logoutBtn.style.display = "inline";
+      usuarioPre.textContent = JSON.stringify({
+        uid: u.uid,
+        email: u.email,
+        nombre: u.displayName
       }, null, 2);
-      await cargarAcciones();
+      cargarAcciones();
     } else {
-      usuario = null;
-      loginBtn.style.display = "inline-block";
+      loginBtn.style.display = "inline";
       logoutBtn.style.display = "none";
-      userInfo.textContent = "";
+      usuarioPre.textContent = "";
       document.getElementById("listaAcciones").innerHTML = "";
-      document.getElementById("resumen").innerHTML = "";
+      document.getElementById("resumen").textContent = "Resultado total: 0 €";
     }
   });
 
-  document.getElementById("guardarBtn").onclick = async () => {
-    if (!usuario) return;
+  document.getElementById("guardar").onclick = async () => {
+    if (!user) return alert("Debes iniciar sesión");
 
-    const nombre = document.getElementById("nombreAccion").value.trim();
+    const nombre = document.getElementById("nombre").value.trim();
     const tipo = document.getElementById("tipo").value;
-    const importe = Number(document.getElementById("importe").value);
+    const importe = parseFloat(document.getElementById("importe").value);
 
-    if (!nombre || isNaN(importe)) return alert("Datos incorrectos");
+    if (!nombre || isNaN(importe)) {
+      alert("Datos incorrectos");
+      return;
+    }
 
     await addDoc(collection(db, "acciones"), {
-      uid: usuario.uid,
+      uid: user.uid,
       nombre,
       tipo,
       importe,
-      fecha: serverTimestamp()
+      fecha: new Date().toISOString()
     });
 
-    document.getElementById("nombreAccion").value = "";
+    document.getElementById("nombre").value = "";
     document.getElementById("importe").value = "";
 
-    await cargarAcciones();
+    cargarAcciones();
   };
 
   async function cargarAcciones() {
@@ -133,34 +125,34 @@
 
     const q = query(
       collection(db, "acciones"),
-      where("uid", "==", usuario.uid),
+      where("uid", "==", user.uid),
       orderBy("fecha", "desc")
     );
 
     const snapshot = await getDocs(q);
-    const accionesPorNombre = {};
+    const porNombre = {};
     let total = 0;
 
     snapshot.forEach(doc => {
       const a = doc.data();
-      if (!accionesPorNombre[a.nombre]) accionesPorNombre[a.nombre] = [];
-      accionesPorNombre[a.nombre].push(a);
+      if (!porNombre[a.nombre]) porNombre[a.nombre] = [];
+      porNombre[a.nombre].push(a);
+
+      total += a.tipo === "VENTA" ? a.importe : -a.importe;
     });
 
-    for (const nombre in accionesPorNombre) {
-      const h3 = document.createElement("h3");
-      h3.textContent = nombre;
-      contenedor.appendChild(h3);
+    for (const nombre in porNombre) {
+      const h4 = document.createElement("h4");
+      h4.textContent = nombre;
+      contenedor.appendChild(h4);
 
       const ul = document.createElement("ul");
 
-      accionesPorNombre[nombre].forEach(a => {
+      porNombre[nombre].forEach(a => {
         const li = document.createElement("li");
-        const fecha = a.fecha?.toDate().toLocaleDateString("es-ES") || "";
+        const fecha = a.fecha.split("T")[0].split("-").reverse().join("/");
         li.textContent = `${fecha} — ${a.tipo} — ${a.importe} €`;
         ul.appendChild(li);
-
-        total += a.tipo === "COMPRA" ? -a.importe : a.importe;
       });
 
       contenedor.appendChild(ul);
