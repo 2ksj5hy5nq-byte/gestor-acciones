@@ -40,6 +40,11 @@ hr { border:0; border-top:1px solid #334155; margin:10px 0 }
 .ganancia { color:#22c55e; font-weight:bold }
 .perdida { color:#ef4444; font-weight:bold }
 .titulo { font-size:16px; font-weight:bold; margin-bottom:6px }
+.totalMes {
+  font-size:18px;
+  text-align:center;
+  margin:10px 0;
+}
 </style>
 </head>
 
@@ -70,11 +75,12 @@ hr { border:0; border-top:1px solid #334155; margin:10px 0 }
     <option value="">— Todas —</option>
   </select>
 
+  <div id="totalMes"></div>
   <div id="cerradas"></div>
 </div>
 
 <div class="card">
-  <h3>📊 Resumen</h3>
+  <h3>📊 Resumen total</h3>
   <div id="resumen"></div>
 </div>
 
@@ -153,14 +159,12 @@ function renderAbiertas() {
       <div class="box">
         <div class="titulo">${o.accion}</div>
 
-        COMPRA<br>
         ${o.fechaCompra}<br>
         ${o.cantidad} × ${o.precioCompra} € → <b>${inv.toFixed(2)} €</b>
 
         <hr>
 
-        VENTA<br>
-        <input id="pv_${o.id}" type="number" step="0.01" placeholder="Precio">
+        <input id="pv_${o.id}" type="number" step="0.01" placeholder="Precio venta">
         <input id="fv_${o.id}" type="date">
 
         <button onclick="cerrarOperacion(${o.id})">Cerrar operación</button>
@@ -184,11 +188,16 @@ function renderFiltroMes() {
   });
 }
 
-/* ===== CERRADAS (FILTRADAS) ===== */
+/* ===== CERRADAS + TOTAL MES ===== */
 function renderCerradas() {
   const cont = document.getElementById("cerradas");
+  const totalDiv = document.getElementById("totalMes");
   const mes = document.getElementById("filtroMes").value;
+
   cont.innerHTML = "";
+  totalDiv.innerHTML = "";
+
+  let totalMes = 0;
 
   operaciones
     .filter(o => !o.abierta && (!mes || o.fechaVenta.startsWith(mes)))
@@ -196,18 +205,17 @@ function renderCerradas() {
       const inv = o.cantidad * o.precioCompra;
       const rec = o.cantidad * o.precioVenta;
       const res = rec - inv;
+      totalMes += res;
 
       cont.innerHTML += `
         <div class="box">
           <div class="titulo">${o.accion}</div>
 
-          COMPRA<br>
           ${o.fechaCompra}<br>
           ${o.cantidad} × ${o.precioCompra} € → ${inv.toFixed(2)} €
 
           <hr>
 
-          VENTA<br>
           ${o.fechaVenta}<br>
           ${o.cantidad} × ${o.precioVenta} € → ${rec.toFixed(2)} €
 
@@ -219,9 +227,17 @@ function renderCerradas() {
         </div>
       `;
     });
+
+  if (mes) {
+    totalDiv.innerHTML = `
+      <div class="totalMes ${totalMes >= 0 ? 'ganancia' : 'perdida'}">
+        TOTAL DEL MES: ${totalMes.toFixed(2)} €
+      </div>
+    `;
+  }
 }
 
-/* ===== RESUMEN ===== */
+/* ===== RESUMEN TOTAL ===== */
 function renderResumen() {
   let total = 0;
 
