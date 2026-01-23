@@ -1,25 +1,11 @@
-// ===============================
-// Firebase SDKs (CDN)
-// ===============================
+// 🔹 Firebase SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import {
-  getFirestore,
-  addDoc,
-  collection,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ===============================
-// Firebase Config (TU PROYECTO)
-// ===============================
+// 🔹 TU CONFIG REAL (LA QUE YA TIENES)
 const firebaseConfig = {
-  apiKey: "AIzaSyD3XGLrrvUTNHqk8P0gU8ROevKBApig7o",
+  apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApiq7o",
   authDomain: "gestor-acciones.firebaseapp.com",
   projectId: "gestor-acciones",
   storageBucket: "gestor-acciones.appspot.com",
@@ -27,57 +13,102 @@ const firebaseConfig = {
   appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
 };
 
-// ===============================
-// Init
-// ===============================
+// 🔹 Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// ===============================
-// Login Google
-// ===============================
-document.getElementById("loginBtn").addEventListener("click", async () => {
+// 🔹 DOM
+const loginBtn = document.getElementById("loginBtn");
+const userP = document.getElementById("user");
+const saveBtn = document.getElementById("saveBtn");
+
+const nombreInput = document.getElementById("nombre");
+const tipoSelect = document.getElementById("tipo");
+const cantidadInput = document.getElementById("cantidad");
+const precioInput = document.getElementById("precio");
+
+const totalSpan = document.getElementById("total");
+const resumenP = document.getElementById("resumen");
+
+// 🔹 Login
+loginBtn.onclick = async () => {
   try {
     await signInWithPopup(auth, provider);
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
     alert("Error al iniciar sesión");
+    console.error(e);
   }
-});
+};
 
-// ===============================
-// Estado de sesión
-// ===============================
-onAuthStateChanged(auth, user => {
-  if (user) {
-    document.getElementById("loginBtn").style.display = "none";
-  }
-});
-
-// ===============================
-// Guardar acción
-// ===============================
-document.getElementById("saveBtn").addEventListener("click", async () => {
-  const nombre = document.getElementById("nombre").value;
-  const tipo = document.getElementById("tipo").value;
-  const cantidad = Number(document.getElementById("cantidad").value);
-  const precio = Number(document.getElementById("precio").value);
-
-  if (!nombre || !cantidad || !precio) {
-    alert("Completa todos los campos");
+// 🔹 Usuario activo
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    userP.textContent = "";
+    resumenP.textContent = "Resultado total: 0 €";
     return;
   }
 
+  userP.textContent = `Usuario: ${user.email}`;
+  await cargarResumen(user.uid);
+});
+
+// 🔹 Calcular total
+function calcularTotal() {
+  const c = Number(cantidadInput.value) || 0;
+  const p = Number(precioInput.value) || 0;
+  const total = c * p;
+  totalSpan.textContent = total.toFixed(2);
+}
+
+cantidadInput.oninput = calcularTotal;
+precioInput.oninput = calcularTotal;
+
+// 🔹 Guardar acción
+saveBtn.onclick = async () => {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Debes iniciar sesión");
+    return;
+  }
+
+  const cantidad = Number(cantidadInput.value);
+  const precio = Number(precioInput.value);
+
+  if (!cantidad || !precio) {
+    alert("Datos incompletos");
+    return;
+  }
+
+  const valor = cantidad * precio * (tipoSelect.value === "VENTA" ? -1 : 1);
+
   await addDoc(collection(db, "acciones"), {
-    nombre,
-    tipo,
-    cantidad,
-    precio,
-    total: cantidad * precio,
-    fecha: serverTimestamp()
+    uid: user.uid,
+    email: user.email,
+    nombre: nombreInput.value,
+    tipo: tipoSelect.value,
+    valor,
+    fecha: new Date()
   });
 
-  alert("Acción guardada");
-});
+  nombreInput.value = "";
+  cantidadInput.value = "";
+  precioInput.value = "";
+  totalSpan.textContent = "0";
+
+  await cargarResumen(user.uid);
+};
+
+// 🔹 Resumen
+async function cargarResumen(uid) {
+  const q = query(collection(db, "acciones"), where("uid", "==", uid));
+  const snap = await getDocs(q);
+
+  let total = 0;
+  snap.forEach(doc => {
+    total += doc.data().valor;
+  });
+
+  resumenP.textContent = `Resultado total: ${total.toFixed(2)} €`;
+}
