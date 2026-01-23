@@ -45,6 +45,10 @@ hr { border:0; border-top:1px solid #334155; margin:10px 0 }
   text-align:center;
   margin:10px 0;
 }
+.resumenLinea {
+  font-size:16px;
+  margin:6px 0;
+}
 </style>
 </head>
 
@@ -80,7 +84,7 @@ hr { border:0; border-top:1px solid #334155; margin:10px 0 }
 </div>
 
 <div class="card">
-  <h3>📊 Resumen total</h3>
+  <h3>📊 Resumen</h3>
   <div id="resumen"></div>
 </div>
 
@@ -91,7 +95,6 @@ function guardarEstado() {
   localStorage.setItem("ops", JSON.stringify(operaciones));
 }
 
-/* ===== GUARDAR COMPRA (NO TOCAR) ===== */
 function guardarCompra() {
   const accion = document.getElementById("accion").value.trim();
   const cantidad = Number(document.getElementById("cantidad").value);
@@ -118,7 +121,6 @@ function guardarCompra() {
   render();
 }
 
-/* ===== CERRAR OPERACIÓN ===== */
 function cerrarOperacion(id) {
   const precioVenta = Number(document.getElementById("pv_" + id).value);
   const fechaVenta = document.getElementById("fv_" + id).value;
@@ -139,7 +141,6 @@ function cerrarOperacion(id) {
   render();
 }
 
-/* ===== RENDER GENERAL ===== */
 function render() {
   renderAbiertas();
   renderFiltroMes();
@@ -147,7 +148,6 @@ function render() {
   renderResumen();
 }
 
-/* ===== ABIERTAS ===== */
 function renderAbiertas() {
   const cont = document.getElementById("abiertas");
   cont.innerHTML = "";
@@ -173,13 +173,10 @@ function renderAbiertas() {
   });
 }
 
-/* ===== FILTRO MES ===== */
 function renderFiltroMes() {
   const select = document.getElementById("filtroMes");
   const meses = [...new Set(
-    operaciones
-      .filter(o => !o.abierta)
-      .map(o => o.fechaVenta.slice(0,7))
+    operaciones.filter(o => !o.abierta).map(o => o.fechaVenta.slice(0,7))
   )];
 
   select.innerHTML = `<option value="">— Todas —</option>`;
@@ -188,7 +185,6 @@ function renderFiltroMes() {
   });
 }
 
-/* ===== CERRADAS + TOTAL MES ===== */
 function renderCerradas() {
   const cont = document.getElementById("cerradas");
   const totalDiv = document.getElementById("totalMes");
@@ -237,16 +233,34 @@ function renderCerradas() {
   }
 }
 
-/* ===== RESUMEN TOTAL ===== */
+/* ===== RESUMEN ANUAL + MES ACTUAL ===== */
 function renderResumen() {
-  let total = 0;
+  const hoy = new Date();
+  const mesActual = hoy.toISOString().slice(0,7);
+  const añoActual = hoy.getFullYear().toString();
+
+  let totalMesActual = 0;
+  let totalAnual = 0;
 
   operaciones.filter(o => !o.abierta).forEach(o => {
-    total += (o.cantidad * o.precioVenta) - (o.cantidad * o.precioCompra);
+    const res = (o.cantidad * o.precioVenta) - (o.cantidad * o.precioCompra);
+
+    if (o.fechaVenta.startsWith(mesActual)) {
+      totalMesActual += res;
+    }
+    if (o.fechaVenta.startsWith(añoActual)) {
+      totalAnual += res;
+    }
   });
 
-  document.getElementById("resumen").innerHTML =
-    "Resultado total: <b>" + total.toFixed(2) + " €</b>";
+  document.getElementById("resumen").innerHTML = `
+    <div class="resumenLinea ${totalMesActual >= 0 ? 'ganancia' : 'perdida'}">
+      MES EN CURSO: ${totalMesActual.toFixed(2)} €
+    </div>
+    <div class="resumenLinea ${totalAnual >= 0 ? 'ganancia' : 'perdida'}">
+      AÑO ${añoActual}: ${totalAnual.toFixed(2)} €
+    </div>
+  `;
 }
 
 render();
