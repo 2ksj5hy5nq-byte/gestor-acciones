@@ -36,7 +36,6 @@ button{
 }
 .small{font-size:13px;opacity:.8}
 hr{border:0;border-top:1px solid #334155;margin:10px 0}
-.mes{background:#020617;padding:10px;border-radius:8px;margin-bottom:10px}
 .ganancia{color:#22c55e}
 .perdida{color:#ef4444}
 </style>
@@ -52,7 +51,7 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 <input id="cantidad" type="number" placeholder="Cantidad">
 <input id="precioCompra" type="number" step="0.01" placeholder="Precio compra">
 <input id="fechaCompra" type="date">
-<button id="guardar">Guardar compra</button>
+<button id="btnGuardar">Guardar compra</button>
 </div>
 
 <div class="card">
@@ -61,7 +60,7 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 </div>
 
 <div class="card">
-<h3>📁 Cerradas por mes</h3>
+<h3>📁 Operaciones cerradas (por mes)</h3>
 <div id="cerradas"></div>
 </div>
 
@@ -71,20 +70,24 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 </div>
 
 <script>
+/* ========= ESTADO ÚNICO (NO CARPETAS) ========= */
 let ops = JSON.parse(localStorage.getItem("ops")) || [];
 
+/* ========= UTIL ========= */
 const € = n => Number(n).toFixed(2)+" €";
+const save = () => localStorage.setItem("ops", JSON.stringify(ops));
 
-const guardarEstado=()=>localStorage.setItem("ops",JSON.stringify(ops));
+/* ========= GUARDAR COMPRA (ESTABLE) ========= */
+document.getElementById("btnGuardar").addEventListener("click", ()=>{
+  const a = accion.value.trim();
+  const c = +cantidad.value;
+  const p = +precioCompra.value;
+  const f = fechaCompra.value;
 
-document.getElementById("guardar").addEventListener("click",()=>{
-  const a=accion.value.trim();
-  const c=+cantidad.value;
-  const p=+precioCompra.value;
-  const f=fechaCompra.value;
-  if(!a||!c||!p||!f){alert("Completa todos los campos");return;}
+  if(!a||!c||!p||!f){ alert("Completa todos los campos"); return; }
+
   ops.push({
-    id:Date.now(),
+    id: Date.now(),
     accion:a,
     cantidad:c,
     precioCompra:p,
@@ -93,24 +96,32 @@ document.getElementById("guardar").addEventListener("click",()=>{
     precioVenta:null,
     fechaVenta:null
   });
-  guardarEstado();
+
+  save();
   accion.value=cantidad.value=precioCompra.value=fechaCompra.value="";
   render();
 });
 
+/* ========= CERRAR OPERACIÓN ========= */
 function cerrar(id){
-  const o=ops.find(x=>x.id===id);
+  const o = ops.find(x=>x.id===id);
+  if(!o.precioVenta || !o.fechaVenta){
+    alert("Introduce precio y fecha de venta");
+    return;
+  }
   o.abierta=false;
-  guardarEstado();
+  save();
   render();
 }
 
+/* ========= RENDER ========= */
 function render(){
   renderAbiertas();
   renderCerradas();
   renderResumen();
 }
 
+/* ========= ABIERTAS ========= */
 function renderAbiertas(){
   abiertas.innerHTML="";
   ops.filter(o=>o.abierta).forEach(o=>{
@@ -119,61 +130,65 @@ function renderAbiertas(){
       <div>
         <b>${o.accion}</b><br>
         <span class="small">
-          <input type="number" value="${o.cantidad}" onchange="oCantidad(${o.id},this.value)">
+          <input type="number" value="${o.cantidad}" 
+            onchange="o.cantidad=+this.value;save();render()">
           ×
-          <input type="number" step="0.01" value="${o.precioCompra}" onchange="oPrecioCompra(${o.id},this.value)">
+          <input type="number" step="0.01" value="${o.precioCompra}" 
+            onchange="o.precioCompra=+this.value;save();render()">
         </span><br>
-        <input type="date" value="${o.fechaCompra}" onchange="oFechaCompra(${o.id},this.value)">
+        <input type="date" value="${o.fechaCompra}" 
+          onchange="o.fechaCompra=this.value;save()">
       </div>
       <div>
-        <input type="number" step="0.01" placeholder="Precio venta" onchange="oPrecioVenta(${o.id},this.value)">
-        <input type="date" onchange="oFechaVenta(${o.id},this.value)">
+        <input type="number" step="0.01" placeholder="Precio venta"
+          onchange="o.precioVenta=+this.value;save()">
+        <input type="date"
+          onchange="o.fechaVenta=this.value;save()">
         <button onclick="cerrar(${o.id})">Cerrar</button>
       </div>
     </div><hr>`;
   });
 }
 
+/* ========= CERRADAS (AGRUPADAS SOLO AL MOSTRAR) ========= */
 function renderCerradas(){
   cerradas.innerHTML="";
   const grupos={};
+
   ops.filter(o=>!o.abierta).forEach(o=>{
-    const m=o.fechaVenta.slice(0,7);
-    grupos[m]=grupos[m]||[];
-    grupos[m].push(o);
+    const mes=o.fechaVenta.slice(0,7);
+    if(!grupos[mes]) grupos[mes]=[];
+    grupos[mes].push(o);
   });
 
   Object.entries(grupos).forEach(([mes,lista])=>{
     let total=0;
-    let html=`<div class="mes"><b>${mes}</b><br>`;
+    let html=`<b>${mes}</b><br>`;
     lista.forEach(o=>{
       const r=(o.precioVenta-o.precioCompra)*o.cantidad;
       total+=r;
       html+=`${o.accion}: ${€(r)}<br>`;
     });
-    html+=`<b class="${total>=0?'ganancia':'perdida'}">Total mes: ${€(total)}</b></div>`;
+    html+=`<b class="${total>=0?'ganancia':'perdida'}">
+      Total mes: ${€(total)}</b><hr>`;
     cerradas.innerHTML+=html;
   });
 }
 
+/* ========= RESUMEN ========= */
 function renderResumen(){
   let inv=0,rec=0;
   ops.forEach(o=>{
     inv+=o.cantidad*o.precioCompra;
-    if(!o.abierta)rec+=o.cantidad*o.precioVenta;
+    if(!o.abierta) rec+=o.cantidad*o.precioVenta;
   });
+
   resumen.innerHTML=`
     Capital invertido: ${€(inv)}<br>
     Capital recuperado: ${€(rec)}<br>
     Resultado total: ${€(rec-inv)}
   `;
 }
-
-function oCantidad(id,v){ops.find(o=>o.id===id).cantidad=+v;guardarEstado();render();}
-function oPrecioCompra(id,v){ops.find(o=>o.id===id).precioCompra=+v;guardarEstado();render();}
-function oFechaCompra(id,v){ops.find(o=>o.id===id).fechaCompra=v;guardarEstado();}
-function oPrecioVenta(id,v){ops.find(o=>o.id===id).precioVenta=+v;guardarEstado();}
-function oFechaVenta(id,v){ops.find(o=>o.id===id).fechaVenta=v;guardarEstado();}
 
 render();
 </script>
