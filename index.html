@@ -18,6 +18,7 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 .trash{position:absolute;top:10px;right:10px;cursor:pointer;font-size:18px;color:#ef4444}
 .totalMes{font-size:18px;text-align:center;margin:10px 0}
 .undo{background:#facc15;color:black}
+.secondary{background:#38bdf8;color:black}
 </style>
 </head>
 
@@ -57,27 +58,31 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
   <button class="undo" onclick="deshacerBorrado()">↩️ Deshacer borrado</button>
 </div>
 
+<div class="card">
+  <h3>💾 Backup / Restaurar</h3>
+  <button class="secondary" onclick="backup()">📤 Crear backup</button>
+  <input type="file" id="fileRestore" accept=".json" onchange="restaurar(event)">
+</div>
+
 <script>
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
 let ultimoBorrado = null;
 
-function guardarEstado(){
-  localStorage.setItem("ops",JSON.stringify(operaciones));
-}
+function guardarEstado(){ localStorage.setItem("ops",JSON.stringify(operaciones)); }
 
 /* ===== GUARDAR COMPRA ===== */
 function guardarCompra(){
-  const accion=document.getElementById("accion").value.trim();
-  const cantidad=Number(document.getElementById("cantidad").value);
-  const precio=Number(document.getElementById("precio").value);
-  const fechaCompra=document.getElementById("fechaCompra").value;
-  if(!accion||!cantidad||!precio||!fechaCompra){alert("Completa todos los datos");return;}
+  const a=accion.value.trim();
+  const c=+cantidad.value;
+  const p=+precio.value;
+  const f=fechaCompra.value;
+  if(!a||!c||!p||!f){alert("Completa todos los datos");return;}
   operaciones.push({
     id:Date.now(),
-    accion,
-    cantidad,
-    precioCompra:precio,
-    fechaCompra,
+    accion:a,
+    cantidad:c,
+    precioCompra:p,
+    fechaCompra:f,
     abierta:true,
     precioVenta:null,
     fechaVenta:null
@@ -87,7 +92,7 @@ function guardarCompra(){
 
 /* ===== CERRAR ===== */
 function cerrarOperacion(id){
-  const pv=Number(document.getElementById("pv_"+id).value);
+  const pv=+document.getElementById("pv_"+id).value;
   const fv=document.getElementById("fv_"+id).value;
   if(!pv||!fv){alert("Precio y día de venta");return;}
   const o=operaciones.find(x=>x.id===id);
@@ -98,18 +103,49 @@ function cerrarOperacion(id){
 /* ===== BORRAR + DESHACER ===== */
 function borrarOperacion(id){
   if(!confirm("¿Borrar esta operación?"))return;
-  ultimoBorrado = operaciones.find(o=>o.id===id);
-  operaciones = operaciones.filter(o=>o.id!==id);
-  document.getElementById("undoBox").style.display="block";
+  ultimoBorrado=operaciones.find(o=>o.id===id);
+  operaciones=operaciones.filter(o=>o.id!==id);
+  undoBox.style.display="block";
+  guardarEstado(); render();
+}
+function deshacerBorrado(){
+  if(!ultimoBorrado)return;
+  operaciones.push(ultimoBorrado);
+  ultimoBorrado=null;
+  undoBox.style.display="none";
   guardarEstado(); render();
 }
 
-function deshacerBorrado(){
-  if(!ultimoBorrado) return;
-  operaciones.push(ultimoBorrado);
-  ultimoBorrado = null;
-  document.getElementById("undoBox").style.display="none";
-  guardarEstado(); render();
+/* ===== BACKUP ===== */
+function backup(){
+  const data=JSON.stringify(operaciones,null,2);
+  const blob=new Blob([data],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download="gestor-acciones-backup.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ===== RESTAURAR ===== */
+function restaurar(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  if(!confirm("Esto reemplazará todas las operaciones actuales"))return;
+  const reader=new FileReader();
+  reader.onload=function(){
+    try{
+      const data=JSON.parse(reader.result);
+      if(!Array.isArray(data))throw "Formato inválido";
+      operaciones=data;
+      guardarEstado(); render();
+      alert("Backup restaurado correctamente");
+    }catch{
+      alert("Archivo no válido");
+    }
+  };
+  reader.readAsText(file);
 }
 
 /* ===== RENDER ===== */
@@ -150,13 +186,11 @@ function renderCerradas(){
   cerradas.innerHTML=""; totalMes.innerHTML="";
   const mes=filtroMes.value;
   let total=0;
-
   operaciones.filter(o=>!o.abierta && (!mes||o.fechaVenta.startsWith(mes)))
   .forEach(o=>{
     const inv=o.cantidad*o.precioCompra;
     const rec=o.cantidad*o.precioVenta;
     const res=rec-inv; total+=res;
-
     cerradas.innerHTML+=`
       <div class="box">
         <span class="trash" onclick="borrarOperacion(${o.id})">🗑</span>
@@ -167,12 +201,9 @@ function renderCerradas(){
         ${o.fechaVenta}<br>
         ${o.cantidad} × ${o.precioVenta} € → ${rec.toFixed(2)} €
         <hr>
-        <div class="${res>=0?'ganancia':'perdida'}">
-          RESULTADO: ${res.toFixed(2)} €
-        </div>
+        <div class="${res>=0?'ganancia':'perdida'}">RESULTADO: ${res.toFixed(2)} €</div>
       </div>`;
   });
-
   if(mes){
     totalMes.innerHTML=`<div class="${total>=0?'ganancia':'perdida'} totalMes">
       TOTAL MES: ${total.toFixed(2)} €
@@ -186,13 +217,11 @@ function renderResumen(){
   const mes=hoy.toISOString().slice(0,7);
   const año=hoy.getFullYear().toString();
   let m=0,a=0;
-
   operaciones.filter(o=>!o.abierta).forEach(o=>{
     const r=(o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
     if(o.fechaVenta.startsWith(mes))m+=r;
     if(o.fechaVenta.startsWith(año))a+=r;
   });
-
   resumen.innerHTML=`
     <div class="${m>=0?'ganancia':'perdida'}">MES EN CURSO: ${m.toFixed(2)} €</div>
     <div class="${a>=0?'ganancia':'perdida'}">AÑO ${año}: ${a.toFixed(2)} €</div>`;
