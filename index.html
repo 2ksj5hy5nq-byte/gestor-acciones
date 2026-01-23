@@ -3,11 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <title>Gestor de Acciones</title>
+
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; }
-    button, input, select { width: 100%; padding: 8px; margin: 6px 0; }
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 8px;
+      margin: 6px 0;
+    }
+    button {
+      cursor: pointer;
+    }
   </style>
 </head>
+
 <body>
 
 <h1>Gestor de Acciones</h1>
@@ -15,15 +29,15 @@
 <button id="loginBtn">Iniciar sesión con Google</button>
 <p id="user"></p>
 
-<hr>
-
 <h2>Nueva acción</h2>
 
 <input id="nombre" placeholder="Nombre de la acción">
+
 <select id="tipo">
   <option value="COMPRA">Compra</option>
   <option value="VENTA">Venta</option>
 </select>
+
 <input id="cantidad" type="number" placeholder="Cantidad">
 <input id="precio" type="number" step="0.01" placeholder="Precio">
 
@@ -34,7 +48,8 @@
 <h2>Resumen</h2>
 <p id="resumen">Resultado total: 0 €</p>
 
-<!-- SIN ./  SIN / -->
+<!-- ⚠️ CLAVE: SIN ./ Y SIN / -->
 <script type="module" src="app.js"></script>
+
 </body>
 </html>
