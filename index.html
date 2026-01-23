@@ -79,7 +79,7 @@ let ops = JSON.parse(localStorage.getItem("ops")) || [];
 let editIndex = null;
 
 function guardar() {
-  const accion = document.getElementById("accion").value;
+  const accion = document.getElementById("accion").value.trim();
   const tipo = document.getElementById("tipo").value;
   const cantidad = Number(document.getElementById("cantidad").value);
   const precio = Number(document.getElementById("precio").value);
@@ -91,10 +91,12 @@ function guardar() {
 
   const signo = tipo === "VENTA" ? -1 : 1;
   const total = cantidad * precio * signo;
-
   const data = { accion, tipo, cantidad, precio, total };
 
+  // CONFIRMACIÓN AL EDITAR (sobrescribir)
   if (editIndex !== null) {
+    const ok = confirm("¿Guardar cambios y sobrescribir esta operación?");
+    if (!ok) return;
     ops[editIndex] = data;
     editIndex = null;
   } else {
@@ -116,7 +118,8 @@ function editar(i) {
 }
 
 function borrarUno(i) {
-  if (!confirm("¿Borrar esta operación?")) return;
+  const ok = confirm("¿Seguro que quieres borrar esta operación?");
+  if (!ok) return;
   ops.splice(i, 1);
   localStorage.setItem("ops", JSON.stringify(ops));
   render();
