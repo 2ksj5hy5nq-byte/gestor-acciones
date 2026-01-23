@@ -3,36 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <title>Gestor de Acciones</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  background:#0f172a;
-  color:white;
-  padding:15px;
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: white;
+  padding: 15px;
 }
 input, select, button {
-  width:100%;
-  padding:10px;
-  margin:6px 0;
-  border-radius:6px;
-  border:none;
+  width: 100%;
+  padding: 8px;
+  margin: 6px 0;
 }
 button {
-  background:#22c55e;
-  color:black;
-  font-weight:bold;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+}
+button.danger {
+  background: #c0392b;
 }
 table {
-  width:100%;
-  margin-top:15px;
-  border-collapse:collapse;
+  width: 100%;
+  margin-top: 15px;
+  border-collapse: collapse;
 }
 th, td {
-  border-bottom:1px solid #334155;
-  padding:6px;
-  text-align:center;
+  border-bottom: 1px solid #334155;
+  padding: 6px;
+  text-align: center;
+}
+.total {
+  font-size: 18px;
+  margin-top: 10px;
 }
 </style>
 </head>
@@ -41,7 +47,7 @@ th, td {
 
 <h2>📈 Gestor de Acciones</h2>
 
-<input id="accion" placeholder="Acción">
+<input id="accion" placeholder="Acción (ej. AAPL)">
 <select id="tipo">
   <option value="COMPRA">Compra</option>
   <option value="VENTA">Venta</option>
@@ -49,64 +55,85 @@ th, td {
 <input id="cantidad" type="number" placeholder="Cantidad">
 <input id="precio" type="number" step="0.01" placeholder="Precio">
 <input id="fecha" type="date">
-<button onclick="guardar()">Guardar</button>
+
+<button onclick="guardar()">Guardar operación</button>
+<button class="danger" onclick="borrarTodo()">🗑 Borrar todo</button>
+
+<div class="total" id="resultado">Total: 0 €</div>
 
 <table>
 <thead>
 <tr>
-<th>Acción</th><th>Tipo</th><th>Nº</th><th>Precio</th><th>Fecha</th><th>Total</th>
+  <th>Acción</th>
+  <th>Tipo</th>
+  <th>Cant.</th>
+  <th>Precio</th>
+  <th>Total</th>
 </tr>
 </thead>
 <tbody id="tabla"></tbody>
 </table>
 
-<h3 id="resumen"></h3>
-
 <script>
 let ops = JSON.parse(localStorage.getItem("ops")) || [];
 
 function guardar() {
-  const a = accion.value;
-  const t = tipo.value;
-  const n = Number(cantidad.value);
-  const p = Number(precio.value);
-  const f = fecha.value;
+  const accion = document.getElementById("accion").value;
+  const tipo = document.getElementById("tipo").value;
+  const cantidad = Number(document.getElementById("cantidad").value);
+  const precio = Number(document.getElementById("precio").value);
 
-  if (!a || !n || !p || !f) {
-    alert("Faltan datos");
+  if (!accion || !cantidad || !precio) {
+    alert("Completa todos los campos");
     return;
   }
 
-  ops.push({a,t,n,p,f});
+  const signo = tipo === "VENTA" ? -1 : 1;
+  const total = cantidad * precio * signo;
+
+  ops.push({ accion, tipo, cantidad, precio, total });
   localStorage.setItem("ops", JSON.stringify(ops));
-  pintar();
+
+  limpiar();
+  render();
 }
 
-function pintar() {
+function borrarTodo() {
+  if (!confirm("¿Seguro que quieres borrar todo?")) return;
+  localStorage.removeItem("ops");
+  ops = [];
+  render();
+}
+
+function limpiar() {
+  document.getElementById("accion").value = "";
+  document.getElementById("cantidad").value = "";
+  document.getElementById("precio").value = "";
+}
+
+function render() {
+  const tabla = document.getElementById("tabla");
   tabla.innerHTML = "";
-  let total = 0;
+  let suma = 0;
 
   ops.forEach(o => {
-    const signo = o.t === "VENTA" ? -1 : 1;
-    const val = o.n * o.p * signo;
-    total += val;
-
+    suma += o.total;
     tabla.innerHTML += `
       <tr>
-        <td>${o.a}</td>
-        <td>${o.t}</td>
-        <td>${o.n}</td>
-        <td>${o.p}</td>
-        <td>${o.f}</td>
-        <td>${val.toFixed(2)} €</td>
+        <td>${o.accion}</td>
+        <td>${o.tipo}</td>
+        <td>${o.cantidad}</td>
+        <td>${o.precio}</td>
+        <td>${o.total.toFixed(2)} €</td>
       </tr>
     `;
   });
 
-  resumen.textContent = "Resultado total: " + total.toFixed(2) + " €";
+  document.getElementById("resultado").textContent =
+    "Total: " + suma.toFixed(2) + " €";
 }
 
-pintar();
+render();
 </script>
 
 </body>
