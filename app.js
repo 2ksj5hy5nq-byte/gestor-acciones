@@ -1,12 +1,12 @@
+// ================= FIREBASE =================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-
 import {
   getAuth,
   GoogleAuthProvider,
   signInWithRedirect,
+  getRedirectResult,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
 import {
   getFirestore,
   collection,
@@ -16,7 +16,7 @@ import {
   getDocs
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ================= CONFIG =================
+// === TU CONFIG (CORRECTA) ===
 const firebaseConfig = {
   apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROevKBApig7o",
   authDomain: "gestor-acciones.firebaseapp.com",
@@ -26,7 +26,6 @@ const firebaseConfig = {
   appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
 };
 
-// ================= INIT =================
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -45,33 +44,34 @@ const precioInput = document.getElementById("precio");
 const totalSpan = document.getElementById("total");
 const resumenP = document.getElementById("resumen");
 
-// ================= LOGIN (MÓVIL) =================
+// ================= LOGIN (MÓVIL OK) =================
 loginBtn.onclick = () => {
   signInWithRedirect(auth, provider);
 };
 
-// ================= AUTH STATE =================
+getRedirectResult(auth).catch(() => {});
+
+// ================= ESTADO AUTH =================
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     userP.textContent = user.email;
     await cargarResumen(user.uid);
   } else {
     userP.textContent = "";
-    resumenP.textContent = "Resultado total: 0 €";
   }
 });
 
 // ================= CALCULAR TOTAL =================
 [cantidadInput, precioInput, tipoSelect].forEach(el => {
   el.oninput = () => {
-    const c = Number(cantidadInput.value);
-    const p = Number(precioInput.value);
-    if (!c || !p) {
+    const cantidad = Number(cantidadInput.value);
+    const precio = Number(precioInput.value);
+    if (!cantidad || !precio) {
       totalSpan.textContent = "0";
       return;
     }
     const signo = tipoSelect.value === "VENTA" ? -1 : 1;
-    totalSpan.textContent = c * p * signo;
+    totalSpan.textContent = cantidad * precio * signo;
   };
 });
 
@@ -85,8 +85,7 @@ saveBtn.onclick = async () => {
 
   const cantidad = Number(cantidadInput.value);
   const precio = Number(precioInput.value);
-
-  if (!nombreInput.value || !cantidad || !precio) {
+  if (!cantidad || !precio || !nombreInput.value) {
     alert("Datos incompletos");
     return;
   }
@@ -114,9 +113,7 @@ saveBtn.onclick = async () => {
 async function cargarResumen(uid) {
   const q = query(collection(db, "acciones"), where("uid", "==", uid));
   const snap = await getDocs(q);
-
   let total = 0;
-  snap.forEach(d => total += d.data().valor);
-
+  snap.forEach(doc => total += doc.data().valor);
   resumenP.textContent = `Resultado total: ${total} €`;
 }
