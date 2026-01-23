@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Gestor de Acciones</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
-    input, select, button { margin: 5px 0; display: block; }
+    input, select, button { display: block; margin: 6px 0; }
   </style>
 </head>
 <body>
@@ -18,12 +18,12 @@
 <div id="usuario"></div>
 
 <h3>Nueva acción</h3>
-<input id="nombre" placeholder="Nombre de la acción" />
+<input id="nombre" placeholder="Nombre de la acción">
 <select id="tipo">
   <option value="Compra">Compra</option>
   <option value="Venta">Venta</option>
 </select>
-<input id="importe" type="number" placeholder="Importe €" />
+<input id="importe" type="number" placeholder="Importe €">
 <button id="guardar">Guardar acción</button>
 
 <h3>Mis acciones</h3>
@@ -33,22 +33,22 @@
 <div id="resumen">Resultado total: 0 €</div>
 
 <script type="module">
-  // 🔥 IMPORTS FIREBASE
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getFirestore, collection, addDoc, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } 
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, collection, addDoc, query, where, orderBy, getDocs } 
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // 🔥 CONFIGURACIÓN FIREBASE (USA LA BROWSER KEY)
+  // ✅ CONFIGURACIÓN CORRECTA (TU PROYECTO REAL)
   const firebaseConfig = {
-    apiKey: "AQUI_TU_BROWSER_KEY",
+    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
     authDomain: "gestor-acciones.firebaseapp.com",
-    projectId: "AQUI_TU_PROJECT_ID",
+    projectId: "gestor-acciones",
     storageBucket: "gestor-acciones.appspot.com",
-    messagingSenderId: "AQUI_TU_MESSAGING_SENDER_ID",
-    appId: "AQUI_TU_APP_ID"
+    messagingSenderId: "682376422747",
+    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
   };
 
-  // 🔥 INIT
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
@@ -56,12 +56,10 @@
 
   let user = null;
 
-  // 🔐 LOGIN GOOGLE
   document.getElementById("loginGoogle").onclick = async () => {
     await signInWithPopup(auth, provider);
   };
 
-  // 👤 SESIÓN
   onAuthStateChanged(auth, u => {
     user = u;
     if (u) {
@@ -70,9 +68,8 @@
     }
   });
 
-  // 💾 GUARDAR ACCIÓN
   document.getElementById("guardar").onclick = async () => {
-    if (!user) return alert("Inicia sesión");
+    if (!user) return alert("Inicia sesión primero");
 
     await addDoc(collection(db, "acciones"), {
       uid: user.uid,
@@ -85,7 +82,6 @@
     cargarAcciones();
   };
 
-  // 📥 CARGAR ACCIONES
   async function cargarAcciones() {
     const q = query(
       collection(db, "acciones"),
@@ -99,12 +95,11 @@
 
     let total = 0;
 
-    snap.forEach(d => {
-      const a = d.data();
+    snap.forEach(doc => {
+      const a = doc.data();
       const li = document.createElement("li");
       li.textContent = `${a.nombre} | ${a.tipo} | ${a.importe} €`;
       lista.appendChild(li);
-
       total += a.tipo === "Compra" ? -a.importe : a.importe;
     });
 
