@@ -17,9 +17,6 @@
     button {
       cursor: pointer;
     }
-    hr {
-      margin: 20px 0;
-    }
   </style>
 </head>
 <body>
@@ -51,7 +48,6 @@
 <h3>Resumen</h3>
 <p>Resultado total: <span id="resultado">0</span> €</p>
 
-<!-- FIREBASE -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import {
@@ -70,7 +66,7 @@
     getDocs
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // 🔴 CONFIGURACIÓN REAL DE TU PROYECTO FIREBASE
+  // 🔐 CONFIGURACIÓN FIREBASE (SOLO ESTA)
   const firebaseConfig = {
     apiKey: "AIzaSyD3XGLrrvUTNHqk8P0gU8ROeyKBApiG7o",
     authDomain: "gestor-acciones.firebaseapp.com",
@@ -87,14 +83,13 @@
 
   let usuario = null;
 
-  // LOGIN
   document.getElementById("loginBtn").onclick = () => {
     signInWithRedirect(auth, provider);
   };
 
   getRedirectResult(auth).catch(() => {});
 
-  onAuthStateChanged(auth, (user) => {
+  onAuthStateChanged(auth, async (user) => {
     if (user) {
       usuario = user;
       document.getElementById("userInfo").textContent = user.email;
@@ -102,7 +97,6 @@
     }
   });
 
-  // CÁLCULO TOTAL
   const cantidadInput = document.getElementById("cantidad");
   const precioInput = document.getElementById("precio");
 
@@ -114,7 +108,6 @@
   cantidadInput.oninput = actualizarTotal;
   precioInput.oninput = actualizarTotal;
 
-  // GUARDAR ACCIÓN
   document.getElementById("guardar").onclick = async () => {
     if (!usuario) return alert("Inicia sesión primero");
 
@@ -135,7 +128,6 @@
     cargarResumen();
   };
 
-  // RESUMEN
   async function cargarResumen() {
     const q = query(
       collection(db, "acciones"),
@@ -145,10 +137,7 @@
     const snap = await getDocs(q);
     let suma = 0;
 
-    snap.forEach(doc => {
-      suma += doc.data().total;
-    });
-
+    snap.forEach(doc => suma += doc.data().total);
     document.getElementById("resultado").textContent = suma.toFixed(2);
   }
 </script>
