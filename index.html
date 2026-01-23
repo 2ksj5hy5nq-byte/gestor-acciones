@@ -5,29 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestor de Acciones</title>
 
-<!-- PWA -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Acciones">
-<link rel="apple-touch-icon" href="icon.png">
-<link rel="manifest" href="manifest.json">
 
 <style>
 body{background:#0f172a;color:white;font-family:Arial;padding:15px}
 input,button,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:none}
 button{background:#22c55e;color:black;font-weight:bold}
 .card{background:#020617;padding:12px;border-radius:10px;margin-bottom:15px}
-.box{border:1px solid #334155;border-radius:8px;padding:10px;margin-bottom:12px;position:relative}
+.box{border:1px solid #334155;border-radius:8px;padding:10px;margin-bottom:12px}
 hr{border:0;border-top:1px solid #334155;margin:10px 0}
 .ganancia{color:#22c55e;font-weight:bold}
 .perdida{color:#ef4444;font-weight:bold}
-.titulo{font-size:16px;font-weight:bold;margin-bottom:6px}
-.trash{position:absolute;top:10px;right:10px;cursor:pointer;font-size:18px;color:#ef4444}
-.totalMes{font-size:18px;text-align:center;margin:10px 0}
-.undo{background:#facc15;color:black}
 .secondary{background:#38bdf8;color:black}
-.range{display:flex;gap:6px}
-.range input{flex:1}
 </style>
 </head>
 
@@ -35,6 +25,7 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 
 <h2>📈 Gestor de Acciones</h2>
 
+<!-- ===== NUEVA COMPRA ===== -->
 <div class="card">
   <h3>Nueva compra</h3>
   <input id="accion" placeholder="Nombre">
@@ -44,91 +35,139 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
   <button onclick="guardarCompra()">Guardar compra</button>
 </div>
 
+<!-- ===== ABIERTAS ===== -->
 <div class="card">
   <h3>📂 Operaciones abiertas</h3>
   <div id="abiertas"></div>
 </div>
 
+<!-- ===== CERRADAS ===== -->
 <div class="card">
   <h3>📁 Operaciones cerradas</h3>
-
-  <select id="filtroMes" onchange="renderCerradas()">
-    <option value="">— Todas —</option>
-  </select>
-
-  <div class="range">
-    <input id="desde" type="date" onchange="renderCerradas()">
-    <input id="hasta" type="date" onchange="renderCerradas()">
-  </div>
-
-  <div id="totalMes"></div>
   <div id="cerradas"></div>
 </div>
 
+<!-- ===== RESUMEN ===== -->
 <div class="card">
   <h3>📊 Resumen</h3>
   <div id="resumen"></div>
 </div>
 
+<!-- ===== BACKUP ===== -->
 <div class="card">
-  <h3>📤 Exportar</h3>
-  <button class="secondary" onclick="exportarExcel()">📊 Exportar Excel</button>
+  <h3>💾 Copia de seguridad</h3>
+  <button class="secondary" onclick="crearBackup()">📤 Crear backup</button>
+  <input type="file" id="restaurarInput" accept=".json" onchange="restaurarBackup(event)">
 </div>
 
 <script>
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
-function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
 
-function guardarCompra(){
-  const a=accion.value.trim(), c=+cantidad.value, p=+precio.value, f=fechaCompra.value;
-  if(!a||!c||!p||!f){alert("Completa todos los datos");return;}
-  operaciones.push({id:Date.now(),accion:a,cantidad:c,precioCompra:p,fechaCompra:f,abierta:true});
-  guardarEstado(); render();
+/* ===== GUARDAR ESTADO ===== */
+function guardarEstado(){
+  localStorage.setItem("ops", JSON.stringify(operaciones));
 }
 
+/* ===== GUARDAR COMPRA ===== */
+function guardarCompra(){
+  const a=accion.value.trim();
+  const c=+cantidad.value;
+  const p=+precio.value;
+  const f=fechaCompra.value;
+
+  if(!a||!c||!p||!f){
+    alert("Completa todos los datos");
+    return;
+  }
+
+  operaciones.push({
+    id: Date.now(),
+    accion:a,
+    cantidad:c,
+    precioCompra:p,
+    fechaCompra:f,
+    abierta:true,
+    precioVenta:null,
+    fechaVenta:null
+  });
+
+  guardarEstado();
+  render();
+}
+
+/* ===== CERRAR ===== */
 function cerrarOperacion(id){
   const pv=document.getElementById("pv_"+id).value;
   const fv=document.getElementById("fv_"+id).value;
   if(!pv||!fv){alert("Precio y fecha");return;}
+
   const o=operaciones.find(x=>x.id===id);
-  o.precioVenta=+pv; o.fechaVenta=fv; o.abierta=false;
-  guardarEstado(); render();
+  o.precioVenta=+pv;
+  o.fechaVenta=fv;
+  o.abierta=false;
+
+  guardarEstado();
+  render();
 }
 
-function pasaFiltro(o){
-  if(o.abierta) return false;
-  if(desde.value && o.fechaVenta < desde.value) return false;
-  if(hasta.value && o.fechaVenta > hasta.value) return false;
-  if(!filtroMes.value) return true;
-  return o.fechaVenta.startsWith(filtroMes.value);
-}
+/* ===== BACKUP ===== */
+function crearBackup(){
+  const data = JSON.stringify(operaciones, null, 2);
+  const blob = new Blob([data], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
 
-function exportarExcel(){
-  const filas=operaciones.filter(pasaFiltro);
-  if(!filas.length){alert("No hay datos");return;}
-  let csv="Acción,Cantidad,Precio compra,Fecha compra,Precio venta,Fecha venta,Resultado\n";
-  filas.forEach(o=>{
-    const inv=o.cantidad*o.precioCompra;
-    const rec=o.cantidad*o.precioVenta;
-    csv+=`${o.accion},${o.cantidad},${o.precioCompra},${o.fechaCompra},${o.precioVenta},${o.fechaVenta},${(rec-inv).toFixed(2)}\n`;
-  });
-  const blob=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="operaciones.csv";
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "gestor_acciones_backup.json";
   a.click();
+
+  URL.revokeObjectURL(url);
 }
 
-function render(){renderAbiertas();renderFiltroMes();renderCerradas();renderResumen();}
+/* ===== RESTAURAR ===== */
+function restaurarBackup(e){
+  const file = e.target.files[0];
+  if(!file) return;
 
+  if(!confirm("Esto reemplazará todos los datos actuales. ¿Continuar?")){
+    e.target.value="";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(){
+    try{
+      const data = JSON.parse(reader.result);
+      if(!Array.isArray(data)) throw "Formato inválido";
+
+      operaciones = data;
+      guardarEstado();
+      render();
+      alert("Copia restaurada correctamente");
+    }catch{
+      alert("Archivo no válido");
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ===== RENDER ===== */
+function render(){
+  renderAbiertas();
+  renderCerradas();
+  renderResumen();
+}
+
+/* ===== ABIERTAS ===== */
 function renderAbiertas(){
   abiertas.innerHTML="";
   operaciones.filter(o=>o.abierta).forEach(o=>{
+    const inv=o.cantidad*o.precioCompra;
     abiertas.innerHTML+=`
       <div class="box">
-        <div class="titulo">${o.accion}</div>
+        <strong>${o.accion}</strong><br>
         ${o.fechaCompra}<br>
-        ${o.cantidad} × ${o.precioCompra} €
+        ${o.cantidad} × ${o.precioCompra} € → ${inv.toFixed(2)} €
         <hr>
         <input id="pv_${o.id}" type="number" step="0.01" placeholder="Precio venta">
         <input id="fv_${o.id}" type="date">
@@ -137,36 +176,33 @@ function renderAbiertas(){
   });
 }
 
-function renderFiltroMes(){
-  const m=[...new Set(operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,7)))];
-  filtroMes.innerHTML=`<option value="">— Todas —</option>`;
-  m.forEach(x=>filtroMes.innerHTML+=`<option>${x}</option>`);
-}
-
+/* ===== CERRADAS ===== */
 function renderCerradas(){
-  cerradas.innerHTML=""; let t=0;
-  operaciones.filter(pasaFiltro).forEach(o=>{
+  cerradas.innerHTML="";
+  operaciones.filter(o=>!o.abierta).forEach(o=>{
     const inv=o.cantidad*o.precioCompra;
     const rec=o.cantidad*o.precioVenta;
-    t+=rec-inv;
+    const res=rec-inv;
     cerradas.innerHTML+=`
       <div class="box">
-        <div class="titulo">${o.accion}</div>
+        <strong>${o.accion}</strong><br>
         ${o.fechaCompra} → ${inv.toFixed(2)} €
         <hr>
         ${o.fechaVenta} → ${rec.toFixed(2)} €
-        <div class="${rec-inv>=0?'ganancia':'perdida'}">${(rec-inv).toFixed(2)} €</div>
+        <div class="${res>=0?'ganancia':'perdida'}">
+          Resultado: ${res.toFixed(2)} €
+        </div>
       </div>`;
   });
-  totalMes.innerHTML=`TOTAL: ${t.toFixed(2)} €`;
 }
 
+/* ===== RESUMEN ===== */
 function renderResumen(){
   let total=0;
   operaciones.filter(o=>!o.abierta).forEach(o=>{
-    total+=(o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
+    total += (o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
   });
-  resumen.innerHTML=`TOTAL ACUMULADO: ${total.toFixed(2)} €`;
+  resumen.innerHTML = `Total acumulado: ${total.toFixed(2)} €`;
 }
 
 render();
