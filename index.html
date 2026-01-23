@@ -1,41 +1,100 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Gestor de Acciones</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor de Acciones</title>
+<style>
+  body { font-family: Arial; padding: 15px; max-width: 600px; margin: auto; }
+  input, select, button { width: 100%; padding: 8px; margin: 5px 0; }
+  .op { border: 1px solid #ccc; padding: 10px; margin-top: 8px; }
+  .ganancia { color: green; font-weight: bold; }
+  .perdida { color: red; font-weight: bold; }
+</style>
 </head>
-
 <body>
-  <h1>Gestor de Acciones</h1>
 
-  <button id="loginBtn">Iniciar sesión con Google</button>
-  <p id="user"></p>
+<h2>📈 Gestor de Acciones</h2>
 
-  <h2>Nueva acción</h2>
+<input id="accion" placeholder="Nombre de la acción">
+<select id="tipo">
+  <option value="COMPRA">Compra</option>
+  <option value="VENTA">Venta</option>
+</select>
+<input id="cantidad" type="number" placeholder="Cantidad">
+<input id="precio" type="number" placeholder="Precio">
 
-  <input id="nombre" placeholder="Nombre de la acción" />
-  <br />
+<p>Total: <strong><span id="total">0</span> €</strong></p>
 
-  <select id="tipo">
-    <option value="COMPRA">Compra</option>
-    <option value="VENTA">Venta</option>
-  </select>
-  <br />
+<button onclick="guardar()">Guardar operación</button>
 
-  <input id="cantidad" type="number" placeholder="Cantidad" />
-  <br />
+<h3>Operaciones</h3>
+<div id="lista"></div>
 
-  <input id="precio" type="number" step="0.01" placeholder="Precio" />
-  <br />
+<h3>Resultado total</h3>
+<p id="resultado">0 €</p>
 
-  <p><strong>Total:</strong> <span id="total">0</span> €</p>
+<script>
+let operaciones = JSON.parse(localStorage.getItem("operaciones") || "[]");
 
-  <button id="saveBtn">Guardar acción</button>
+function guardar() {
+  const accion = document.getElementById("accion").value;
+  const tipo = document.getElementById("tipo").value;
+  const cantidad = Number(document.getElementById("cantidad").value);
+  const precio = Number(document.getElementById("precio").value);
 
-  <h2>Resumen</h2>
-  <p id="resumen">Resultado total: 0 €</p>
+  if (!accion || !cantidad || !precio) {
+    alert("Completa todos los campos");
+    return;
+  }
 
-  <!-- ⚠️ CLAVE ABSOLUTA -->
-  <script type="module" src="app.js"></script>
+  const valor = cantidad * precio * (tipo === "VENTA" ? 1 : -1);
+
+  operaciones.push({
+    accion, tipo, cantidad, precio, valor
+  });
+
+  localStorage.setItem("operaciones", JSON.stringify(operaciones));
+  limpiar();
+  pintar();
+}
+
+function limpiar() {
+  accion.value = cantidad.value = precio.value = "";
+  total.textContent = "0";
+}
+
+function pintar() {
+  lista.innerHTML = "";
+  let totalRes = 0;
+
+  operaciones.forEach(o => {
+    totalRes += o.valor;
+    lista.innerHTML += `
+      <div class="op">
+        <strong>${o.accion}</strong><br>
+        ${o.tipo} · ${o.cantidad} × ${o.precio} €<br>
+        Resultado:
+        <span class="${o.valor >= 0 ? "ganancia" : "perdida"}">
+          ${o.valor.toFixed(2)} €
+        </span>
+      </div>
+    `;
+  });
+
+  resultado.innerHTML = `
+    <span class="${totalRes >= 0 ? "ganancia" : "perdida"}">
+      ${totalRes.toFixed(2)} €
+    </span>
+  `;
+}
+
+cantidad.oninput = precio.oninput = () => {
+  total.textContent = (cantidad.value * precio.value || 0).toFixed(2);
+};
+
+pintar();
+</script>
+
 </body>
 </html>
