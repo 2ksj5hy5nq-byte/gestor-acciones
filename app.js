@@ -1,28 +1,26 @@
 // ===============================
-// 🔥 Firebase SDK (v9 modular)
+// Firebase SDKs (v10+ modular)
 // ===============================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
   onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore,
   collection,
-  addDoc,
-  query,
-  where,
-  getDocs,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+  addDoc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // ===============================
-// 🔐 Firebase config (TU PROYECTO)
+// ⚠️ CONFIGURACIÓN FIREBASE REAL
 // ===============================
+// 🔴 ESTE apiKey DEBE SER EL DE:
+// Firebase Console → Configuración del proyecto → SDK web
 const firebaseConfig = {
-  apiKey: "AIzaSyBm2_VJXtZNPhs76ROV60s16hMXmgxNIlA",
+  apiKey: "PEGA_AQUI_EL_API_KEY_DE_FIREBASE", // 🔴 NO Google Cloud API
   authDomain: "gestor-acciones.firebaseapp.com",
   projectId: "gestor-acciones",
   storageBucket: "gestor-acciones.appspot.com",
@@ -31,129 +29,93 @@ const firebaseConfig = {
 };
 
 // ===============================
-// 🚀 Init Firebase
+// Inicializar Firebase
 // ===============================
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
 
 // ===============================
-// 🎯 DOM
+// LOGIN GOOGLE
 // ===============================
 const loginBtn = document.getElementById("loginBtn");
-const nombreInput = document.getElementById("nombre");
-const tipoSelect = document.getElementById("tipo");
+const userInfo = document.getElementById("user");
+
+loginBtn.addEventListener("click", async () => {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    console.error("Error login:", error);
+    alert("Error al iniciar sesión con Google");
+  }
+});
+
+// ===============================
+// Estado de sesión
+// ===============================
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    userInfo.textContent = `Sesión iniciada: ${user.email}`;
+    loginBtn.style.display = "none";
+  } else {
+    userInfo.textContent = "";
+    loginBtn.style.display = "block";
+  }
+});
+
+// ===============================
+// CÁLCULO TOTAL
+// ===============================
 const cantidadInput = document.getElementById("cantidad");
 const precioInput = document.getElementById("precio");
 const totalSpan = document.getElementById("total");
-const saveBtn = document.getElementById("saveBtn");
-const resumenP = document.getElementById("resumen");
 
-// ===============================
-// 👤 Usuario actual
-// ===============================
-let currentUser = null;
-
-// ===============================
-// 🔑 Login con Google
-// ===============================
-loginBtn.addEventListener("click", async () => {
-  try {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  } catch (err) {
-    console.error(err);
-    alert("Error al iniciar sesión");
-  }
-});
-
-// ===============================
-// 👀 Escuchar sesión
-// ===============================
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    currentUser = user;
-    loginBtn.style.display = "none";
-    await cargarResumen();
-  } else {
-    currentUser = null;
-    loginBtn.style.display = "block";
-    resumenP.textContent = "Resultado total: 0 €";
-  }
-});
-
-// ===============================
-// 🧮 Calcular total en tiempo real
-// ===============================
 function calcularTotal() {
-  const cantidad = Number(cantidadInput.value);
-  const precio = Number(precioInput.value);
+  const cantidad = Number(cantidadInput.value) || 0;
+  const precio = Number(precioInput.value) || 0;
   const total = cantidad * precio;
-
-  totalSpan.textContent = isNaN(total) ? "0.00" : total.toFixed(2);
+  totalSpan.textContent = total.toFixed(2) + " €";
 }
 
 cantidadInput.addEventListener("input", calcularTotal);
 precioInput.addEventListener("input", calcularTotal);
 
 // ===============================
-// 💾 Guardar acción
+// GUARDAR ACCIÓN
 // ===============================
+const saveBtn = document.getElementById("saveBtn");
+
 saveBtn.addEventListener("click", async () => {
-  if (!currentUser) {
+  if (!auth.currentUser) {
     alert("Debes iniciar sesión");
     return;
   }
 
-  const nombre = nombreInput.value.trim();
-  const tipo = tipoSelect.value;
+  const nombre = document.getElementById("nombre").value.trim();
+  const tipo = document.getElementById("tipo").value;
   const cantidad = Number(cantidadInput.value);
   const precio = Number(precioInput.value);
-  const total = cantidad * precio;
 
-  if (!nombre || isNaN(total)) {
+  if (!nombre || cantidad <= 0 || precio <= 0) {
     alert("Datos incorrectos");
     return;
   }
 
   try {
     await addDoc(collection(db, "acciones"), {
-      uid: currentUser.uid,
+      uid: auth.currentUser.uid,
       nombre,
       tipo,
       cantidad,
       precio,
-      total,
-      fecha: serverTimestamp()
+      total: cantidad * precio,
+      fecha: new Date()
     });
 
-    nombreInput.value = "";
-    cantidadInput.value = "";
-    precioInput.value = "";
-    totalSpan.textContent = "0.00";
-
-    await cargarResumen();
-  } catch (err) {
-    console.error(err);
-    alert("Error al guardar");
+    alert("Acción guardada correctamente");
+  } catch (error) {
+    console.error("Error guardando:", error);
+    alert("Error al guardar la acción");
   }
 });
-
-// ===============================
-// 📊 Resumen acumulado
-// ===============================
-async function cargarResumen() {
-  const q = query(
-    collection(db, "acciones"),
-    where("uid", "==", currentUser.uid)
-  );
-
-  const snapshot = await getDocs(q);
-  let suma = 0;
-
-  snapshot.forEach(doc => {
-    suma += doc.data().total;
-  });
-
-  resumenP.textContent = `Resultado total: ${suma.toFixed(2)} €`;
-}
