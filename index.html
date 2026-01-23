@@ -5,66 +5,53 @@
   <title>Gestor de Acciones</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
-    h1 { margin-bottom: 10px; }
-    input, select, button { margin: 5px 0; }
-    ul { margin-left: 20px; }
+    input, select, button { margin: 4px 0; padding: 6px; }
+    h3 { margin-top: 25px; }
   </style>
 </head>
 <body>
 
 <h1>Gestor de Acciones</h1>
 
-<button id="loginBtn">Iniciar sesión con Google</button>
+<button id="login">Iniciar sesión con Google</button>
+<button id="logout" style="display:none">Cerrar sesión</button>
 
 <h3>Usuario</h3>
 <div id="usuario"></div>
 
 <h3>Nueva acción</h3>
-<input id="nombre" placeholder="Nombre de la acción" />
-<br>
+<input id="nombre" placeholder="Nombre de la acción"><br>
+
 <select id="tipo">
   <option value="Compra">Compra</option>
   <option value="Venta">Venta</option>
-</select>
-<br>
-<input id="importe" type="number" placeholder="Importe €" />
-<br>
+</select><br>
+
+<input id="cantidad" type="number" placeholder="Número de acciones"><br>
+<input id="precio" type="number" step="0.01" placeholder="Precio por acción €"><br>
+
 <button id="guardar">Guardar acción</button>
 
 <h3>Mis acciones</h3>
 <div id="listaAcciones"></div>
 
 <h3>Resumen</h3>
-<div id="resultado">Resultado total: 0 €</div>
+<strong>Total:</strong> <span id="resultado">0 €</span>
 
 <script type="module">
-  // 🔥 Firebase SDK
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import {
-    getFirestore,
-    collection,
-    addDoc,
-    query,
-    where,
-    orderBy,
-    getDocs,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } 
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, collection, addDoc, query, where, orderBy, getDocs } 
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // ⚠️ CONFIGURACIÓN FIREBASE (TU PROYECTO)
   const firebaseConfig = {
-    apiKey: "PEGA_AQUI_TU_BROWSER_KEY",
+    apiKey: "TU_API_KEY",
     authDomain: "gestor-acciones.firebaseapp.com",
     projectId: "gestor-acciones",
     storageBucket: "gestor-acciones.appspot.com",
     messagingSenderId: "682376422747",
-    appId: "1:682376422747:web:XXXX"
+    appId: "TU_APP_ID"
   };
 
   const app = initializeApp(firebaseConfig);
@@ -72,75 +59,90 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  const loginBtn = document.getElementById("loginBtn");
-  const usuarioDiv = document.getElementById("usuario");
-  const guardarBtn = document.getElementById("guardar");
+  let user = null;
 
-  let usuario = null;
+  login.onclick = () => signInWithPopup(auth, provider);
+  logout.onclick = () => signOut(auth);
 
-  loginBtn.onclick = async () => {
-    await signInWithPopup(auth, provider);
-  };
-
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      usuario = user;
-      usuarioDiv.textContent = user.email;
-      await cargarAcciones();
+  onAuthStateChanged(auth, u => {
+    user = u;
+    if (u) {
+      usuario.textContent = u.email;
+      login.style.display = "none";
+      logout.style.display = "inline";
+      cargarAcciones();
+    } else {
+      usuario.textContent = "";
+      login.style.display = "inline";
+      logout.style.display = "none";
+      listaAcciones.innerHTML = "";
+      resultado.textContent = "0 €";
     }
   });
 
-  guardarBtn.onclick = async () => {
-    if (!usuario) return alert("Inicia sesión");
-
+  guardar.onclick = async () => {
     const nombre = document.getElementById("nombre").value.trim();
     const tipo = document.getElementById("tipo").value;
-    const importe = Number(document.getElementById("importe").value);
+    const cantidad = Number(document.getElementById("cantidad").value);
+    const precio = Number(document.getElementById("precio").value);
 
-    if (!nombre || !importe) return alert("Faltan datos");
+    if (!nombre || !cantidad || !precio) return alert("Rellena todos los campos");
+
+    const total = cantidad * precio * (tipo === "Venta" ? 1 : -1);
 
     await addDoc(collection(db, "acciones"), {
-      uid: usuario.uid,
+      uid: user.uid,
       nombre,
       tipo,
-      importe,
-      fecha: serverTimestamp()
+      cantidad,
+      precio,
+      total,
+      fecha: new Date()
     });
 
     document.getElementById("nombre").value = "";
-    document.getElementById("importe").value = "";
+    document.getElementById("cantidad").value = "";
+    document.getElementById("precio").value = "";
 
-    await cargarAcciones();
+    cargarAcciones();
   };
 
   async function cargarAcciones() {
-    const contenedor = document.getElementById("listaAcciones");
-    contenedor.innerHTML = "";
+    listaAcciones.innerHTML = "";
+    let suma = 0;
 
     const q = query(
       collection(db, "acciones"),
-      where("uid", "==", usuario.uid),
+      where("uid", "==", user.uid),
       orderBy("fecha", "desc")
     );
 
-    const snapshot = await getDocs(q);
+    const snap = await getDocs(q);
+    const porNombre = {};
 
-    let total = 0;
-
-    snapshot.forEach(doc => {
+    snap.forEach(doc => {
       const a = doc.data();
-      const fecha = a.fecha?.toDate().toLocaleDateString("es-ES") ?? "—";
-
-      const div = document.createElement("div");
-      div.textContent = `${fecha} · ${a.nombre} · ${a.tipo} · ${a.importe} €`;
-
-      contenedor.appendChild(div);
-
-      total += a.tipo === "Venta" ? a.importe : -a.importe;
+      suma += a.total;
+      if (!porNombre[a.nombre]) porNombre[a.nombre] = [];
+      porNombre[a.nombre].push(a);
     });
 
-    document.getElementById("resultado").textContent =
-      `Resultado total: ${total.toFixed(2)} €`;
+    for (const nombre in porNombre) {
+      const h4 = document.createElement("h4");
+      h4.textContent = nombre;
+      listaAcciones.appendChild(h4);
+
+      const ul = document.createElement("ul");
+      porNombre[nombre].forEach(a => {
+        const li = document.createElement("li");
+        li.textContent =
+          `${a.tipo} – ${a.cantidad} x ${a.precio} € = ${a.total.toFixed(2)} €`;
+        ul.appendChild(li);
+      });
+      listaAcciones.appendChild(ul);
+    }
+
+    resultado.textContent = suma.toFixed(2) + " €";
   }
 </script>
 
