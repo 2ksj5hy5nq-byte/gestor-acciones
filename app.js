@@ -1,3 +1,6 @@
+// ===============================
+// Firebase SDK (CDN - module)
+// ===============================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getAuth,
@@ -11,11 +14,15 @@ import {
   addDoc,
   query,
   where,
-  getDocs
+  getDocs,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// ===============================
+// Firebase CONFIG (TU PROYECTO)
+// ===============================
 const firebaseConfig = {
-  apiKey: "AIzaSyBm2_VJXtZNPhs76ROV60s16hMXmgxNilA",
+  apiKey: "AIzaSyBm2_VJXtZNPhs76ROV60s16hMXmgxNiIA",
   authDomain: "gestor-acciones.firebaseapp.com",
   projectId: "gestor-acciones",
   storageBucket: "gestor-acciones.appspot.com",
@@ -23,86 +30,137 @@ const firebaseConfig = {
   appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
 };
 
+// ===============================
+// Inicializar Firebase
+// ===============================
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
+// ===============================
 // DOM
+// ===============================
 const loginBtn = document.getElementById("loginBtn");
+const userP = document.getElementById("user");
+const nombreInput = document.getElementById("nombre");
+const tipoSelect = document.getElementById("tipo");
+const cantidadInput = document.getElementById("cantidad");
+const precioInput = document.getElementById("precio");
+const totalSpan = document.getElementById("total");
 const saveBtn = document.getElementById("saveBtn");
-const nombreEl = document.getElementById("nombre");
-const tipoEl = document.getElementById("tipo");
-const cantidadEl = document.getElementById("cantidad");
-const precioEl = document.getElementById("precio");
-const totalEl = document.getElementById("total");
-const resumenEl = document.getElementById("resumen");
+const resumenTotal = document.getElementById("resumenTotal");
 
+// ===============================
+// Estado
+// ===============================
 let usuario = null;
 
-// LOGIN
+// ===============================
+// Login Google
+// ===============================
 loginBtn.onclick = async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch (e) {
-    alert("Error al iniciar sesión");
     console.error(e);
+    alert("Error al iniciar sesión");
   }
 };
 
-// AUTH STATE
+// ===============================
+// Estado de sesión
+// ===============================
 onAuthStateChanged(auth, async (user) => {
+  usuario = user;
+
   if (user) {
-    usuario = user;
+    userP.textContent = `Usuario: ${user.email}`;
     await cargarResumen();
+  } else {
+    userP.textContent = "";
+    resumenTotal.textContent = "0.00";
   }
 });
 
-// CALCULAR TOTAL
+// ===============================
+// Calcular total en tiempo real
+// ===============================
 function calcularTotal() {
-  const c = Number(cantidadEl.value) || 0;
-  const p = Number(precioEl.value) || 0;
-  totalEl.textContent = `Total: ${(c * p).toFixed(2)} €`;
+  const cantidad = Number(cantidadInput.value);
+  const precio = Number(precioInput.value);
+
+  if (cantidad > 0 && precio > 0) {
+    const total = cantidad * precio;
+    totalSpan.textContent = total.toFixed(2);
+  } else {
+    totalSpan.textContent = "0.00";
+  }
 }
 
-cantidadEl.oninput = calcularTotal;
-precioEl.oninput = calcularTotal;
+cantidadInput.addEventListener("input", calcularTotal);
+precioInput.addEventListener("input", calcularTotal);
 
-// GUARDAR
+// ===============================
+// Guardar acción
+// ===============================
 saveBtn.onclick = async () => {
-  if (!usuario) return alert("Inicia sesión primero");
+  if (!usuario) {
+    alert("Debes iniciar sesión primero");
+    return;
+  }
 
-  const cantidad = Number(cantidadEl.value);
-  const precio = Number(precioEl.value);
+  const nombre = nombreInput.value.trim();
+  const tipo = tipoSelect.value;
+  const cantidad = Number(cantidadInput.value);
+  const precio = Number(precioInput.value);
+  const total = cantidad * precio;
 
-  await addDoc(collection(db, "acciones"), {
-    uid: usuario.uid,
-    nombre: nombreEl.value,
-    tipo: tipoEl.value,
-    cantidad,
-    precio,
-    total: cantidad * precio,
-    fecha: new Date()
-  });
+  if (!nombre || cantidad <= 0 || precio <= 0) {
+    alert("Datos incorrectos");
+    return;
+  }
 
-  nombreEl.value = "";
-  cantidadEl.value = "";
-  precioEl.value = "";
-  totalEl.textContent = "Total: 0 €";
+  try {
+    await addDoc(collection(db, "acciones"), {
+      uid: usuario.uid,
+      nombre,
+      tipo,
+      cantidad,
+      precio,
+      total,
+      fecha: serverTimestamp()
+    });
 
-  await cargarResumen();
+    nombreInput.value = "";
+    cantidadInput.value = "";
+    precioInput.value = "";
+    totalSpan.textContent = "0.00";
+
+    await cargarResumen();
+  } catch (e) {
+    console.error(e);
+    alert("Error al guardar la acción");
+  }
 };
 
-// RESUMEN
+// ===============================
+// Resumen total (ANTI-NaN)
+// ===============================
 async function cargarResumen() {
+  let total = 0;
+
   const q = query(
     collection(db, "acciones"),
     where("uid", "==", usuario.uid)
   );
 
   const snap = await getDocs(q);
-  let total = 0;
 
-  snap.forEach(d => total += d.data().total);
-  resumenEl.textContent = `Resultado total: ${total.toFixed(2)} €`;
+  snap.forEach(doc => {
+    const t = Number(doc.data().total);
+    if (!isNaN(t)) total += t;
+  });
+
+  resumenTotal.textContent = total.toFixed(2);
 }
