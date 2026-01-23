@@ -26,6 +26,7 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 
 <h2>📈 Gestor de Acciones</h2>
 
+<!-- ===== NUEVA COMPRA ===== -->
 <div class="card">
   <h3>Nueva compra</h3>
   <input id="accion" placeholder="Nombre">
@@ -35,11 +36,13 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
   <button onclick="guardarCompra()">Guardar compra</button>
 </div>
 
+<!-- ===== ABIERTAS ===== -->
 <div class="card">
   <h3>📂 Operaciones abiertas</h3>
   <div id="abiertas"></div>
 </div>
 
+<!-- ===== CERRADAS ===== -->
 <div class="card">
   <h3>📁 Operaciones cerradas</h3>
   <select id="filtroMes" onchange="renderCerradas()">
@@ -49,20 +52,23 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
   <div id="cerradas"></div>
 </div>
 
+<!-- ===== RESUMEN ===== -->
 <div class="card">
   <h3>📊 Resumen</h3>
   <div id="resumen"></div>
 </div>
 
+<!-- ===== DESHACER ===== -->
 <div class="card" id="undoBox" style="display:none">
   <button class="undo" onclick="deshacerBorrado()">↩️ Deshacer borrado</button>
 </div>
 
+<!-- ===== EXPORTAR / ENVIAR ===== -->
 <div class="card">
-  <h3>💾 Backup / Exportar</h3>
-  <button class="secondary" onclick="backup()">📤 Backup JSON</button>
+  <h3>📤 Exportar / Enviar</h3>
   <button class="secondary" onclick="exportarExcel()">📊 Exportar Excel</button>
-  <input type="file" id="fileRestore" accept=".json" onchange="restaurar(event)">
+  <button class="secondary" onclick="enviarWhatsApp()">📲 Enviar WhatsApp</button>
+  <button class="secondary" onclick="enviarMail()">✉️ Enviar Mail</button>
 </div>
 
 <script>
@@ -117,36 +123,39 @@ function deshacerBorrado(){
   guardarEstado(); render();
 }
 
-/* ===== BACKUP ===== */
-function backup(){
-  const data=JSON.stringify(operaciones,null,2);
-  const blob=new Blob([data],{type:"application/json"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;
-  a.download="gestor-acciones-backup.json";
-  a.click();
-  URL.revokeObjectURL(url);
+/* ===== TEXTO RESUMEN ===== */
+function generarTexto(){
+  const mes=filtroMes.value;
+  let texto="📈 RESUMEN OPERACIONES\n\n";
+  let total=0;
+
+  operaciones.filter(o=>!o.abierta && (!mes||o.fechaVenta.startsWith(mes)))
+  .forEach(o=>{
+    const inv=o.cantidad*o.precioCompra;
+    const rec=o.cantidad*o.precioVenta;
+    const res=rec-inv;
+    total+=res;
+    texto+=`${o.accion}\n${o.fechaCompra} → ${inv.toFixed(2)} €\n${o.fechaVenta} → ${rec.toFixed(2)} €\nResultado: ${res.toFixed(2)} €\n\n`;
+  });
+
+  texto+=`TOTAL: ${total.toFixed(2)} €`;
+  return texto;
 }
 
-/* ===== RESTAURAR ===== */
-function restaurar(e){
-  const file=e.target.files[0];
-  if(!file)return;
-  if(!confirm("Esto reemplazará todos los datos actuales"))return;
-  const r=new FileReader();
-  r.onload=()=>{
-    try{
-      const d=JSON.parse(r.result);
-      if(!Array.isArray(d))throw "err";
-      operaciones=d; guardarEstado(); render();
-      alert("Backup restaurado");
-    }catch{ alert("Archivo no válido"); }
-  };
-  r.readAsText(file);
+/* ===== WHATSAPP ===== */
+function enviarWhatsApp(){
+  const texto=encodeURIComponent(generarTexto());
+  window.location.href=`https://wa.me/?text=${texto}`;
 }
 
-/* ===== EXPORTAR EXCEL ===== */
+/* ===== MAIL ===== */
+function enviarMail(){
+  const asunto=encodeURIComponent("Resumen operaciones");
+  const cuerpo=encodeURIComponent(generarTexto());
+  window.location.href=`mailto:?subject=${asunto}&body=${cuerpo}`;
+}
+
+/* ===== EXCEL ===== */
 function exportarExcel(){
   let csv="Acción,Cantidad,Precio compra,Fecha compra,Precio venta,Fecha venta,Resultado\n";
   operaciones.forEach(o=>{
@@ -157,7 +166,7 @@ function exportarExcel(){
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
   a.href=url;
-  a.download="operaciones.xlsx.csv";
+  a.download="operaciones.csv";
   a.click();
   URL.revokeObjectURL(url);
 }
