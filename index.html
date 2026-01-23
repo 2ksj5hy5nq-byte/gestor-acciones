@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Gestor de Acciones</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 40px;
       max-width: 600px;
+      margin: 40px auto;
     }
     input, select, button {
       width: 100%;
@@ -33,38 +33,46 @@
 
 <h2>Nueva acción</h2>
 
-<input id="nombre" placeholder="Nombre de la acción" />
-
+<input id="nombre" placeholder="Nombre de la acción">
 <select id="tipo">
   <option value="Compra">Compra</option>
   <option value="Venta">Venta</option>
 </select>
 
-<input id="cantidad" type="number" placeholder="Número de acciones" />
-<input id="precio" type="number" step="0.01" placeholder="Precio por acción (€)" />
+<input id="cantidad" type="number" placeholder="Número de acciones">
+<input id="precio" type="number" step="0.01" placeholder="Precio por acción (€)">
 
 <p><strong>Total:</strong> <span id="total">0</span> €</p>
 
-<button id="guardarBtn">Guardar acción</button>
+<button id="guardar">Guardar acción</button>
 
 <hr>
 
-<h2>Resumen</h2>
-<p><strong>Resultado total:</strong> <span id="resumen">0</span> €</p>
+<h3>Resumen</h3>
+<p>Resultado total: <span id="resultado">0</span> €</p>
 
+<!-- FIREBASE -->
 <script type="module">
-  // ===============================
-  // IMPORTS FIREBASE (CDN)
-  // ===============================
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithRedirect,
+    getRedirectResult,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    query,
+    where,
+    getDocs
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // ===============================
-  // CONFIGURACIÓN FIREBASE (CORRECTA)
-  // ===============================
+  // 🔴 CONFIGURACIÓN REAL DE TU PROYECTO FIREBASE
   const firebaseConfig = {
-    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8R0eyKBApig7o",
+    apiKey: "AIzaSyD3XGLrrvUTNHqk8P0gU8ROeyKBApiG7o",
     authDomain: "gestor-acciones.firebaseapp.com",
     projectId: "gestor-acciones",
     storageBucket: "gestor-acciones.appspot.com",
@@ -72,97 +80,76 @@
     appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
   };
 
-  // ===============================
-  // INIT
-  // ===============================
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  let currentUser = null;
+  let usuario = null;
 
-  // ===============================
   // LOGIN
-  // ===============================
-  document.getElementById("loginBtn").onclick = async () => {
-    await signInWithPopup(auth, provider);
+  document.getElementById("loginBtn").onclick = () => {
+    signInWithRedirect(auth, provider);
   };
+
+  getRedirectResult(auth).catch(() => {});
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      currentUser = user;
-      document.getElementById("userInfo").innerText = user.email;
-      escucharAcciones();
+      usuario = user;
+      document.getElementById("userInfo").textContent = user.email;
+      cargarResumen();
     }
   });
 
-  // ===============================
-  // CALCULAR TOTAL EN VIVO
-  // ===============================
+  // CÁLCULO TOTAL
   const cantidadInput = document.getElementById("cantidad");
   const precioInput = document.getElementById("precio");
-  const totalSpan = document.getElementById("total");
 
-  function calcularTotal() {
-    const cantidad = Number(cantidadInput.value);
-    const precio = Number(precioInput.value);
-    const total = cantidad * precio || 0;
-    totalSpan.innerText = total.toFixed(2);
+  function actualizarTotal() {
+    const total = (cantidadInput.value || 0) * (precioInput.value || 0);
+    document.getElementById("total").textContent = total.toFixed(2);
   }
 
-  cantidadInput.oninput = calcularTotal;
-  precioInput.oninput = calcularTotal;
+  cantidadInput.oninput = actualizarTotal;
+  precioInput.oninput = actualizarTotal;
 
-  // ===============================
   // GUARDAR ACCIÓN
-  // ===============================
-  document.getElementById("guardarBtn").onclick = async () => {
-    if (!currentUser) return alert("Inicia sesión primero");
+  document.getElementById("guardar").onclick = async () => {
+    if (!usuario) return alert("Inicia sesión primero");
 
-    const nombre = document.getElementById("nombre").value;
-    const tipo = document.getElementById("tipo").value;
     const cantidad = Number(cantidadInput.value);
     const precio = Number(precioInput.value);
     const total = cantidad * precio;
 
-    if (!nombre || !cantidad || !precio) {
-      return alert("Rellena todos los campos");
-    }
-
     await addDoc(collection(db, "acciones"), {
-      uid: currentUser.uid,
-      nombre,
-      tipo,
+      uid: usuario.uid,
+      nombre: document.getElementById("nombre").value,
+      tipo: document.getElementById("tipo").value,
       cantidad,
       precio,
       total,
       fecha: new Date()
     });
 
-    document.getElementById("nombre").value = "";
-    cantidadInput.value = "";
-    precioInput.value = "";
-    totalSpan.innerText = "0";
+    cargarResumen();
   };
 
-  // ===============================
-  // RESUMEN TOTAL
-  // ===============================
-  function escucharAcciones() {
+  // RESUMEN
+  async function cargarResumen() {
     const q = query(
       collection(db, "acciones"),
-      where("uid", "==", currentUser.uid)
+      where("uid", "==", usuario.uid)
     );
 
-    onSnapshot(q, (snapshot) => {
-      let suma = 0;
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        suma += data.tipo === "Compra" ? -data.total : data.total;
-      });
-      document.getElementById("resumen").innerText = suma.toFixed(2);
+    const snap = await getDocs(q);
+    let suma = 0;
+
+    snap.forEach(doc => {
+      suma += doc.data().total;
     });
+
+    document.getElementById("resultado").textContent = suma.toFixed(2);
   }
 </script>
 
