@@ -3,16 +3,183 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TEST BOTÓN</title>
+<title>Gestor de Acciones</title>
+
+<style>
+body {
+  background:#0f172a;
+  color:white;
+  font-family:Arial;
+  padding:15px;
+}
+input, button {
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+  border-radius:8px;
+  border:none;
+}
+button {
+  background:#22c55e;
+  color:black;
+  font-weight:bold;
+}
+.card {
+  background:#020617;
+  padding:12px;
+  border-radius:10px;
+  margin-top:15px;
+}
+.row {
+  display:flex;
+  justify-content:space-between;
+  margin:4px 0;
+}
+.small {
+  font-size:14px;
+  opacity:.8;
+}
+</style>
 </head>
+
 <body>
 
-<button id="btn">PÚLSAME</button>
+<h2>📈 Gestor de Acciones</h2>
+
+<div class="card">
+  <h3>Nueva compra</h3>
+
+  <input id="accion" placeholder="Acción">
+  <input id="cantidad" type="number" placeholder="Cantidad">
+  <input id="precio" type="number" step="0.01" placeholder="Precio compra">
+  <input id="fechaCompra" type="date">
+
+  <button id="guardar">Guardar compra</button>
+</div>
+
+<div class="card">
+  <h3>Operaciones abiertas</h3>
+  <div id="abiertas"></div>
+</div>
+
+<div class="card">
+  <h3>Resumen</h3>
+  <div id="resumen"></div>
+</div>
 
 <script>
-document.getElementById("btn").addEventListener("click", () => {
-  alert("🔥 EL BOTÓN FUNCIONA 🔥");
+// ================= ESTADO =================
+let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
+
+// ================= GUARDAR =================
+document.getElementById("guardar").addEventListener("click", () => {
+  const accion = accionInput.value.trim();
+  const cantidad = Number(cantidadInput.value);
+  const precio = Number(precioInput.value);
+  const fecha = fechaCompra.value;
+
+  if (!accion || !cantidad || !precio || !fecha) {
+    alert("Datos incompletos");
+    return;
+  }
+
+  operaciones.push({
+    id: crypto.randomUUID(),
+    accion,
+    cantidad,
+    precio,
+    fechaCompra: fecha,
+    abierta: true,
+    fechaVenta: null,
+    precioVenta: null
+  });
+
+  guardarEstado();
+  limpiar();
+  render();
 });
+
+// ================= CERRAR =================
+function cerrar(id) {
+  const precioVenta = prompt("Precio de venta:");
+  const fechaVenta = prompt("Fecha venta (YYYY-MM-DD):");
+
+  if (!precioVenta || !fechaVenta) return;
+
+  const o = operaciones.find(x => x.id === id);
+  o.precioVenta = Number(precioVenta);
+  o.fechaVenta = fechaVenta;
+  o.abierta = false;
+
+  guardarEstado();
+  render();
+}
+
+// ================= RENDER =================
+function render() {
+  renderAbiertas();
+  renderResumen();
+}
+
+function renderAbiertas() {
+  const c = document.getElementById("abiertas");
+  c.innerHTML = "";
+
+  operaciones.filter(o => o.abierta).forEach(o => {
+    const total = o.cantidad * o.precio;
+    c.innerHTML += `
+      <div class="row">
+        <div>
+          <b>${o.accion}</b><br>
+          <span class="small">${o.cantidad} × ${o.precio} €</span>
+        </div>
+        <div>
+          ${total.toFixed(2)} €<br>
+          <button onclick="cerrar('${o.id}')">Cerrar</button>
+        </div>
+      </div>
+      <hr>
+    `;
+  });
+}
+
+function renderResumen() {
+  let invertido = 0;
+  let recuperado = 0;
+
+  operaciones.forEach(o => {
+    invertido += o.cantidad * o.precio;
+    if (!o.abierta) {
+      recuperado += o.cantidad * o.precioVenta;
+    }
+  });
+
+  document.getElementById("resumen").innerHTML = `
+    Capital invertido: ${invertido.toFixed(2)} €<br>
+    Capital recuperado: ${recuperado.toFixed(2)} €<br>
+    Resultado: ${(recuperado - invertido).toFixed(2)} €
+  `;
+}
+
+// ================= UTILS =================
+function guardarEstado() {
+  localStorage.setItem("ops", JSON.stringify(operaciones));
+}
+function limpiar() {
+  accionInput.value = "";
+  cantidadInput.value = "";
+  precioInput.value = "";
+  fechaCompra.value = "";
+}
+
+// ================= DOM =================
+const accionInput = document.getElementById("accion");
+const cantidadInput = document.getElementById("cantidad");
+const precioInput = document.getElementById("precio");
+const fechaCompra = document.getElementById("fechaCompra");
+
+// ================= INIT =================
+render();
 </script>
 
 </body>
