@@ -23,13 +23,8 @@ button {
   border: none;
   border-radius: 6px;
 }
-button.danger {
-  background: #c0392b;
-}
-button.edit {
-  background: #f59e0b;
-  margin-bottom: 4px;
-}
+button.edit { background: #f59e0b; }
+button.delete { background: #c0392b; }
 table {
   width: 100%;
   margin-top: 15px;
@@ -50,7 +45,7 @@ th, td {
 
 <body>
 
-<h2>📈 Gestor de Acciones</h2>
+<h2>📊 Gestor de Acciones</h2>
 
 <input id="accion" placeholder="Acción (ej. AAPL)">
 <select id="tipo">
@@ -61,7 +56,6 @@ th, td {
 <input id="precio" type="number" step="0.01" placeholder="Precio">
 
 <button onclick="guardar()">Guardar operación</button>
-<button class="danger" onclick="borrarTodo()">🗑 Borrar todo</button>
 
 <div class="total" id="resultado">Total: 0 €</div>
 
@@ -73,7 +67,8 @@ th, td {
   <th>Cant.</th>
   <th>Precio</th>
   <th>Total</th>
-  <th>Editar</th>
+  <th>✏️</th>
+  <th>🗑</th>
 </tr>
 </thead>
 <tbody id="tabla"></tbody>
@@ -120,11 +115,10 @@ function editar(i) {
   editIndex = i;
 }
 
-function borrarTodo() {
-  if (!confirm("¿Seguro que quieres borrar todo?")) return;
-  localStorage.removeItem("ops");
-  ops = [];
-  editIndex = null;
+function borrarUno(i) {
+  if (!confirm("¿Borrar esta operación?")) return;
+  ops.splice(i, 1);
+  localStorage.setItem("ops", JSON.stringify(ops));
   render();
 }
 
@@ -148,9 +142,8 @@ function render() {
         <td>${o.cantidad}</td>
         <td>${o.precio}</td>
         <td>${o.total.toFixed(2)} €</td>
-        <td>
-          <button class="edit" onclick="editar(${i})">✏️</button>
-        </td>
+        <td><button class="edit" onclick="editar(${i})">✏️</button></td>
+        <td><button class="delete" onclick="borrarUno(${i})">🗑</button></td>
       </tr>
     `;
   });
