@@ -32,10 +32,11 @@ button {
 }
 .row {
   display:flex;
-  justify-content:space-between;
+  gap:10px;
   align-items:center;
 }
 .small { opacity:.8; font-size:14px }
+hr { border:0; border-top:1px solid #334155; margin:10px 0 }
 </style>
 </head>
 
@@ -45,12 +46,10 @@ button {
 
 <div class="card">
   <h3>Nueva compra</h3>
-
   <input id="accion" placeholder="Acción">
   <input id="cantidad" type="number" placeholder="Cantidad">
   <input id="precio" type="number" step="0.01" placeholder="Precio compra">
   <input id="fechaCompra" type="date">
-
   <button onclick="guardarCompra()">Guardar compra</button>
 </div>
 
@@ -61,11 +60,9 @@ button {
 
 <div class="card">
   <h3>📁 Operaciones cerradas</h3>
-
   <select id="filtroMes" onchange="renderCerradas()">
     <option value="">— Filtrar por mes —</option>
   </select>
-
   <div id="cerradas"></div>
 </div>
 
@@ -81,6 +78,7 @@ function guardarEstado() {
   localStorage.setItem("ops", JSON.stringify(operaciones));
 }
 
+/* ===== GUARDAR COMPRA (NO TOCADO) ===== */
 function guardarCompra() {
   const accion = document.getElementById("accion").value.trim();
   const cantidad = Number(document.getElementById("cantidad").value);
@@ -93,7 +91,7 @@ function guardarCompra() {
   }
 
   operaciones.push({
-    id: Date.now(), // NO tocamos nada más
+    id: Date.now(),
     accion,
     cantidad,
     precioCompra: precio,
@@ -108,19 +106,23 @@ function guardarCompra() {
   render();
 }
 
+/* ===== CERRAR OPERACIÓN (CON INPUTS) ===== */
 function cerrarOperacion(id) {
-  const precioVenta = prompt("Precio de venta:");
-  const fechaVenta = prompt("Fecha de venta (YYYY-MM-DD):");
+  const precioVenta = Number(document.getElementById("pv_"+id).value);
+  const fechaVenta = document.getElementById("fv_"+id).value;
 
-  if (!precioVenta || !fechaVenta) return;
+  if (!precioVenta || !fechaVenta) {
+    alert("Introduce precio y fecha de venta");
+    return;
+  }
 
   const op = operaciones.find(o => o.id === id);
   if (!op) return;
 
-  op.precioVenta = Number(precioVenta);
+  op.precioVenta = precioVenta;
   op.fechaVenta = fechaVenta;
+  op.mesCierre = fechaVenta.slice(0,7);
   op.abierta = false;
-  op.mesCierre = fechaVenta.slice(0,7); // YYYY-MM
 
   guardarEstado();
   render();
@@ -128,36 +130,39 @@ function cerrarOperacion(id) {
 
 function render() {
   renderAbiertas();
-  renderResumen();
   renderFiltroMeses();
   renderCerradas();
+  renderResumen();
 }
 
+/* ===== ABIERTAS ===== */
 function renderAbiertas() {
   const cont = document.getElementById("abiertas");
   cont.innerHTML = "";
 
   operaciones.filter(o => o.abierta).forEach(o => {
     cont.innerHTML += `
-      <div class="row">
-        <div>
-          <strong>${o.accion}</strong><br>
-          <span class="small">${o.cantidad} × ${o.precioCompra} €</span><br>
-          <span class="small">Compra: ${o.fechaCompra}</span>
+      <div>
+        <strong>${o.accion}</strong><br>
+        <span class="small">${o.cantidad} × ${o.precioCompra} €</span><br>
+        <span class="small">Compra: ${o.fechaCompra}</span>
+
+        <div class="row">
+          <input id="pv_${o.id}" type="number" step="0.01" placeholder="Precio venta">
+          <input id="fv_${o.id}" type="date">
+          <button onclick="cerrarOperacion(${o.id})">Cerrar</button>
         </div>
-        <button onclick="cerrarOperacion(${o.id})">Cerrar</button>
       </div>
       <hr>
     `;
   });
 }
 
+/* ===== FILTRO MESES ===== */
 function renderFiltroMeses() {
   const select = document.getElementById("filtroMes");
   const meses = [...new Set(
-    operaciones
-      .filter(o => !o.abierta && o.mesCierre)
-      .map(o => o.mesCierre)
+    operaciones.filter(o => !o.abierta).map(o => o.mesCierre)
   )];
 
   select.innerHTML = `<option value="">— Filtrar por mes —</option>`;
@@ -166,6 +171,7 @@ function renderFiltroMeses() {
   });
 }
 
+/* ===== CERRADAS ===== */
 function renderCerradas() {
   const cont = document.getElementById("cerradas");
   const mes = document.getElementById("filtroMes").value;
@@ -185,6 +191,7 @@ function renderCerradas() {
     });
 }
 
+/* ===== RESUMEN ===== */
 function renderResumen() {
   let invertido = 0;
   let recuperado = 0;
