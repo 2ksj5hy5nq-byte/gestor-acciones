@@ -1,12 +1,12 @@
-// 🔹 Firebase SDK
+// ================== FIREBASE ==================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
 import {
   getFirestore,
   collection,
@@ -16,8 +16,7 @@ import {
   getDocs
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-
-// 🔹 CONFIG CORRECTA (SDK WEB)
+// CONFIG (la tuya, correcta)
 const firebaseConfig = {
   apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROevKBApig7o",
   authDomain: "gestor-acciones.firebaseapp.com",
@@ -27,15 +26,12 @@ const firebaseConfig = {
   appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
 };
 
-
-// 🔹 Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-
-// 🔹 DOM
+// ================== DOM ==================
 const loginBtn = document.getElementById("loginBtn");
 const userP = document.getElementById("user");
 const saveBtn = document.getElementById("saveBtn");
@@ -48,19 +44,14 @@ const precioInput = document.getElementById("precio");
 const totalSpan = document.getElementById("total");
 const resumenP = document.getElementById("resumen");
 
-
-// 🔹 Login
-loginBtn.onclick = async () => {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (e) {
-    alert("Error al iniciar sesión");
-    console.error(e);
-  }
+// ================== LOGIN (MÓVIL OK) ==================
+loginBtn.onclick = () => {
+  signInWithRedirect(auth, provider);
 };
 
+getRedirectResult(auth).catch(console.error);
 
-// 🔹 Estado auth
+// ================== AUTH STATE ==================
 onAuthStateChanged(auth, (user) => {
   if (user) {
     userP.textContent = user.email;
@@ -70,9 +61,8 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-
-// 🔹 Calcular total
-[cantidadInput, precioInput, tipoSelect].forEach(el =>
+// ================== CALCULAR TOTAL ==================
+[cantidadInput, precioInput, tipoSelect].forEach(el => {
   el.oninput = () => {
     const cantidad = Number(cantidadInput.value);
     const precio = Number(precioInput.value);
@@ -82,11 +72,10 @@ onAuthStateChanged(auth, (user) => {
     }
     const signo = tipoSelect.value === "VENTA" ? -1 : 1;
     totalSpan.textContent = cantidad * precio * signo;
-  }
-);
+  };
+});
 
-
-// 🔹 Guardar acción
+// ================== GUARDAR ==================
 saveBtn.onclick = async () => {
   const user = auth.currentUser;
   if (!user) {
@@ -101,8 +90,7 @@ saveBtn.onclick = async () => {
     return;
   }
 
-  const valor =
-    cantidad * precio * (tipoSelect.value === "VENTA" ? -1 : 1);
+  const valor = cantidad * precio * (tipoSelect.value === "VENTA" ? -1 : 1);
 
   await addDoc(collection(db, "acciones"), {
     uid: user.uid,
@@ -121,17 +109,11 @@ saveBtn.onclick = async () => {
   cargarResumen(user.uid);
 };
 
-
-// 🔹 Resumen
+// ================== RESUMEN ==================
 async function cargarResumen(uid) {
-  const q = query(
-    collection(db, "acciones"),
-    where("uid", "==", uid)
-  );
-
+  const q = query(collection(db, "acciones"), where("uid", "==", uid));
   const snap = await getDocs(q);
   let total = 0;
   snap.forEach(doc => total += doc.data().valor);
-
   resumenP.textContent = `Resultado total: ${total} €`;
 }
