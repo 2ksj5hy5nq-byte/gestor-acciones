@@ -39,6 +39,7 @@ hr { opacity:.2 }
 .green { color:#22c55e }
 .red { color:#ef4444 }
 .icon { cursor:pointer; margin-left:10px }
+.range { display:flex; gap:8px }
 </style>
 </head>
 
@@ -66,6 +67,11 @@ hr { opacity:.2 }
   <select id="filtroMes" onchange="render()">
     <option value="">Todos los meses</option>
   </select>
+
+  <div class="range">
+    <input type="date" id="desde" onchange="render()">
+    <input type="date" id="hasta" onchange="render()">
+  </div>
 
   <div id="totalMes"></div>
   <div id="cerradas"></div>
@@ -129,6 +135,19 @@ function cerrarOperacion(id) {
   render();
 }
 
+function editarOperacion(id) {
+  const op = operaciones.find(o => o.id === id);
+  const nuevoPrecio = Number(prompt("Nuevo precio de venta", op.precioVenta));
+  const nuevaFecha = prompt("Nueva fecha de venta", op.fechaVenta);
+  if (!nuevoPrecio || !nuevaFecha) return;
+
+  op.precioVenta = nuevoPrecio;
+  op.fechaVenta = nuevaFecha;
+
+  guardarEstado();
+  render();
+}
+
 function borrar(id) {
   papelera = operaciones.find(o => o.id === id);
   operaciones = operaciones.filter(o => o.id !== id);
@@ -170,9 +189,13 @@ function renderCerradas() {
   cerradas.innerHTML = "";
   let total = 0;
   const mes = filtroMes.value;
+  const d = desde.value;
+  const h = hasta.value;
 
   operaciones.filter(o => !o.abierta).forEach(o => {
     if (mes && !o.fechaVenta.startsWith(mes)) return;
+    if (d && o.fechaVenta < d) return;
+    if (h && o.fechaVenta > h) return;
 
     const compra = o.cantidad * o.precioCompra;
     const venta = o.cantidad * o.precioVenta;
@@ -189,12 +212,13 @@ function renderCerradas() {
         <strong class="${resultado>=0?'green':'red'}">
           ${resultado>=0?'+':''}${resultado.toFixed(2)} €
         </strong>
+        <span class="icon" onclick="editarOperacion('${o.id}')">✏️</span>
         <span class="icon" onclick="borrar('${o.id}')">🗑</span>
         <hr>
       </div>`;
   });
 
-  totalMes.innerHTML = `<strong>TOTAL MES: ${total.toFixed(2)} €</strong>`;
+  totalMes.innerHTML = `<strong>TOTAL FILTRADO: ${total.toFixed(2)} €</strong>`;
 }
 
 function renderResumen() {
