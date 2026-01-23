@@ -10,26 +10,35 @@
   <h1>Gestor de Acciones</h1>
 
   <button id="loginBtn">Iniciar sesión con Google</button>
-  <p id="userEmail"></p>
+  <p id="usuario"></p>
 
   <h2>Nueva acción</h2>
 
   <input id="nombre" placeholder="Nombre de la acción" />
+  <br><br>
+
   <select id="tipo">
     <option value="Compra">Compra</option>
     <option value="Venta">Venta</option>
   </select>
-  <input id="cantidad" type="number" placeholder="Número de acciones" />
-  <input id="precio" type="number" step="0.01" placeholder="Precio por acción (€)" />
+  <br><br>
 
-  <p><strong>Total: <span id="total">0</span> €</strong></p>
+  <input id="cantidad" type="number" placeholder="Número de acciones" />
+  <br><br>
+
+  <input id="precio" type="number" step="0.01" placeholder="Precio por acción (€)" />
+  <br><br>
+
+  <strong>Total: <span id="total">0</span> €</strong>
+  <br><br>
 
   <button id="guardarBtn">Guardar acción</button>
 
   <h2>Resumen</h2>
-  <p>Resultado total: <span id="resumen">0</span> €</p>
+  <p>Resultado total: <span id="resultado">0</span> €</p>
 
-  <!-- APP -->
-  <script type="module" src="./app.js"></script>
+  <!-- TU APP -->
+  <script type="module" src="app.js"></script>
+
 </body>
 </html>
