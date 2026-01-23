@@ -30,8 +30,8 @@ button {
   background:#020617;
   border-radius:12px;
 }
-small { color:#94a3b8 }
 hr { border:0; height:1px; background:#1e293b }
+small { color:#94a3b8 }
 </style>
 </head>
 
@@ -78,7 +78,7 @@ let undo = [];
 let filtro = "";
 
 // ================= UTIL =================
-const € = n => n.toFixed(2)+" €";
+const € = n => n.toFixed(2) + " €";
 const save = () => localStorage.setItem("ops", JSON.stringify(ops));
 
 // ================= BUSCAR =================
@@ -89,109 +89,133 @@ function buscar(v){
 
 // ================= GUARDAR COMPRA =================
 function guardarCompra(){
-  const a = accion.value.trim();
-  const c = +cantidad.value;
-  const p = +precio.value;
-  const f = fechaCompra.value;
-  if(!a||!c||!p||!f) return alert("Faltan datos");
+  const accionEl = document.getElementById("accion");
+  const cantidadEl = document.getElementById("cantidad");
+  const precioEl = document.getElementById("precio");
+  const fechaEl = document.getElementById("fechaCompra");
+
+  const accion = accionEl.value.trim();
+  const cantidad = Number(cantidadEl.value);
+  const precio = Number(precioEl.value);
+  const fecha = fechaEl.value;
+
+  if(!accion || !cantidad || !precio || !fecha){
+    alert("Faltan datos");
+    return;
+  }
 
   undo.push(JSON.stringify(ops));
 
   ops.push({
-    id:crypto.randomUUID(),
-    accion:a,
-    cantidad:c,
-    compra:p,
-    fechaCompra:f,
-    venta:null,
-    fechaVenta:null
+    id: crypto.randomUUID(),
+    accion,
+    cantidad,
+    compra: precio,
+    fechaCompra: fecha,
+    venta: null,
+    fechaVenta: null
   });
 
-  save(); render();
+  accionEl.value = "";
+  cantidadEl.value = "";
+  precioEl.value = "";
+  fechaEl.value = "";
+
+  save();
+  render();
 }
 
 // ================= CERRAR =================
 function cerrar(id){
   const pv = document.getElementById("pv_"+id).value;
   const fv = document.getElementById("fv_"+id).value;
-  if(!pv||!fv) return alert("Falta venta o fecha");
+
+  if(!pv || !fv){
+    alert("Falta precio o fecha de venta");
+    return;
+  }
 
   undo.push(JSON.stringify(ops));
 
-  const o = ops.find(x=>x.id===id);
-  o.venta=+pv;
-  o.fechaVenta=fv;
+  const o = ops.find(x => x.id === id);
+  o.venta = Number(pv);
+  o.fechaVenta = fv;
 
-  save(); render();
+  save();
+  render();
 }
 
 // ================= RENDER =================
 function render(){
-  abiertas.innerHTML="";
-  cerradas.innerHTML="";
+  document.getElementById("abiertas").innerHTML = "";
+  document.getElementById("cerradas").innerHTML = "";
 
-  ops.filter(o=>!o.venta && o.accion.toLowerCase().includes(filtro))
-     .forEach(o=>{
-      abiertas.innerHTML+=`
-      <div>
-        <b>${o.accion}</b> ${o.cantidad} x ${o.compra}
-        <input id="pv_${o.id}" placeholder="Precio venta">
-        <input id="fv_${o.id}" type="date">
-        <button onclick="cerrar('${o.id}')">Cerrar</button>
-        <hr>
-      </div>`;
+  // Abiertas
+  ops.filter(o => !o.venta && o.accion.toLowerCase().includes(filtro))
+     .forEach(o => {
+      document.getElementById("abiertas").innerHTML += `
+        <div>
+          <b>${o.accion}</b> · ${o.cantidad} × ${o.compra}
+          <input id="pv_${o.id}" placeholder="Precio venta">
+          <input id="fv_${o.id}" type="date">
+          <button onclick="cerrar('${o.id}')">Cerrar</button>
+          <hr>
+        </div>`;
      });
 
-  const meses={};
-  ops.filter(o=>o.venta)
-     .forEach(o=>{
-      const m=o.fechaVenta.slice(0,7);
-      if(!meses[m]) meses[m]=[];
-      meses[m].push(o);
+  // Cerradas por mes
+  const meses = {};
+  ops.filter(o => o.venta)
+     .forEach(o => {
+      const mes = o.fechaVenta.slice(0,7);
+      if(!meses[mes]) meses[mes] = [];
+      meses[mes].push(o);
      });
 
-  for(const m in meses){
-    let t=0;
-    cerradas.innerHTML+=`<h4>${m}</h4>`;
-    meses[m].forEach(o=>{
-      const r=(o.venta-o.compra)*o.cantidad;
-      t+=r;
-      cerradas.innerHTML+=`${o.accion}: ${€(r)}<br>`;
+  for(const mes in meses){
+    let totalMes = 0;
+    document.getElementById("cerradas").innerHTML += `<h4>${mes}</h4>`;
+    meses[mes].forEach(o => {
+      const r = (o.venta - o.compra) * o.cantidad;
+      totalMes += r;
+      document.getElementById("cerradas").innerHTML += `${o.accion}: ${€(r)}<br>`;
     });
-    cerradas.innerHTML+=`<b>Total mes: ${€(t)}</b><hr>`;
+    document.getElementById("cerradas").innerHTML += `<b>Total mes: ${€(totalMes)}</b><hr>`;
   }
 
-  let inv=0, rec=0;
-  ops.forEach(o=>{
-    inv+=o.cantidad*o.compra;
-    if(o.venta) rec+=o.cantidad*o.venta;
+  // Resumen
+  let invertido = 0, recuperado = 0;
+  ops.forEach(o => {
+    invertido += o.cantidad * o.compra;
+    if(o.venta) recuperado += o.cantidad * o.venta;
   });
 
-  resumen.innerHTML=`
-  Invertido: ${€(inv)}<br>
-  Recuperado: ${€(rec)}<br>
-  Resultado: ${€(rec-inv)}
+  document.getElementById("resumen").innerHTML = `
+    Invertido: ${€(invertido)}<br>
+    Recuperado: ${€(recuperado)}<br>
+    Resultado: ${€(recuperado - invertido)}
   `;
 }
 
 // ================= EXCEL =================
 function exportar(){
-  let csv="Acción;Cantidad;Compra;Venta;Fecha compra;Fecha venta\n";
-  ops.forEach(o=>{
-    csv+=`${o.accion};${o.cantidad};${o.compra};${o.venta||""};${o.fechaCompra};${o.fechaVenta||""}\n`;
+  let csv = "Acción;Cantidad;Compra;Venta;Fecha compra;Fecha venta\n";
+  ops.forEach(o => {
+    csv += `${o.accion};${o.cantidad};${o.compra};${o.venta||""};${o.fechaCompra};${o.fechaVenta||""}\n`;
   });
-  const b=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);
-  a.download="acciones.csv";
+  const blob = new Blob([csv], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "acciones.csv";
   a.click();
 }
 
 // ================= DESHACER =================
 function deshacer(){
   if(!undo.length) return;
-  ops=JSON.parse(undo.pop());
-  save(); render();
+  ops = JSON.parse(undo.pop());
+  save();
+  render();
 }
 
 render();
