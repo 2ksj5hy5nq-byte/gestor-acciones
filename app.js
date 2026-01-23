@@ -1,29 +1,29 @@
 // ===============================
-// Firebase SDKs (CDN, módulo)
+// Firebase SDK (v9 - CDN)
 // ===============================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
   onAuthStateChanged,
   signOut
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import {
   getFirestore,
   collection,
   addDoc,
   query,
   where,
-  getDocs,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  orderBy,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 // ===============================
-// Firebase config (TU PROYECTO)
+// Firebase config (TU CONFIG)
 // ===============================
 const firebaseConfig = {
-  apiKey: "AIzaSyD3XGLrrvUTNHqk8P0gU8R0eyKBApig7o",
+  apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
   authDomain: "gestor-acciones.firebaseapp.com",
   projectId: "gestor-acciones",
   storageBucket: "gestor-acciones.appspot.com",
@@ -32,7 +32,7 @@ const firebaseConfig = {
 };
 
 // ===============================
-// Inicializar Firebase
+// Init Firebase
 // ===============================
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -43,114 +43,104 @@ const provider = new GoogleAuthProvider();
 // DOM
 // ===============================
 const loginBtn = document.getElementById("loginBtn");
-const userInfo = document.getElementById("userInfo");
+const saveBtn = document.getElementById("saveBtn");
+const nameInput = document.getElementById("nombre");
+const typeInput = document.getElementById("tipo");
+const qtyInput = document.getElementById("cantidad");
+const priceInput = document.getElementById("precio");
+const totalEl = document.getElementById("total");
+const resumenEl = document.getElementById("resumen");
 
-const nombreInput = document.getElementById("nombre");
-const tipoInput = document.getElementById("tipo");
-const numAccionesInput = document.getElementById("numAcciones");
-const precioInput = document.getElementById("precio");
-const totalTexto = document.getElementById("totalOperacion");
-const guardarBtn = document.getElementById("guardarBtn");
-const totalAcumuladoTexto = document.getElementById("totalAcumulado");
+let currentUser = null;
 
 // ===============================
-// LOGIN GOOGLE
+// AUTH
 // ===============================
 loginBtn.addEventListener("click", async () => {
   try {
     await signInWithPopup(auth, provider);
-  } catch (err) {
-    console.error("Error login:", err);
-    alert("Error al iniciar sesión con Google");
+  } catch (e) {
+    console.error(e);
+    alert("Error al iniciar sesión");
   }
 });
 
-// ===============================
-// ESTADO DE SESIÓN
-// ===============================
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    userInfo.textContent = user.email;
-    await cargarTotalAcumulado(user.uid);
+    currentUser = user;
+    loginBtn.textContent = user.email;
+    await cargarAcciones();
   } else {
-    userInfo.textContent = "No autenticado";
-    totalAcumuladoTexto.textContent = "0.00 €";
+    currentUser = null;
+    loginBtn.textContent = "Iniciar sesión con Google";
+    resumenEl.textContent = "Resultado total: 0 €";
   }
 });
 
 // ===============================
-// CÁLCULO EN TIEMPO REAL
+// CALCULAR TOTAL
 // ===============================
 function calcularTotal() {
-  const n = Number(numAccionesInput.value);
-  const p = Number(precioInput.value);
-  const total = n * p;
-  totalTexto.textContent = isNaN(total) ? "0.00 €" : total.toFixed(2) + " €";
+  const qty = Number(qtyInput.value) || 0;
+  const price = Number(priceInput.value) || 0;
+  const total = qty * price;
+  totalEl.textContent = `Total: ${total.toFixed(2)} €`;
+  return total;
 }
 
-numAccionesInput.addEventListener("input", calcularTotal);
-precioInput.addEventListener("input", calcularTotal);
+qtyInput.addEventListener("input", calcularTotal);
+priceInput.addEventListener("input", calcularTotal);
 
 // ===============================
 // GUARDAR ACCIÓN
 // ===============================
-guardarBtn.addEventListener("click", async () => {
-  const user = auth.currentUser;
-  if (!user) {
+saveBtn.addEventListener("click", async () => {
+  if (!currentUser) {
     alert("Debes iniciar sesión");
     return;
   }
 
-  const nombre = nombreInput.value.trim();
-  const tipo = tipoInput.value;
-  const numAcciones = Number(numAccionesInput.value);
-  const precio = Number(precioInput.value);
-
-  if (!nombre || numAcciones <= 0 || precio <= 0) {
-    alert("Datos inválidos");
-    return;
-  }
-
-  const total = numAcciones * precio;
+  const total = calcularTotal();
 
   try {
     await addDoc(collection(db, "acciones"), {
-      uid: user.uid,
-      nombre,
-      tipo,
-      numAcciones,
-      precio,
+      uid: currentUser.uid,
+      nombre: nameInput.value,
+      tipo: typeInput.value,
+      cantidad: Number(qtyInput.value),
+      precio: Number(priceInput.value),
       total,
-      fecha: serverTimestamp()
+      fecha: new Date()
     });
 
-    nombreInput.value = "";
-    numAccionesInput.value = "";
-    precioInput.value = "";
-    totalTexto.textContent = "0.00 €";
+    nameInput.value = "";
+    qtyInput.value = "";
+    priceInput.value = "";
+    totalEl.textContent = "Total: 0 €";
 
-    await cargarTotalAcumulado(user.uid);
-  } catch (err) {
-    console.error("Error guardando:", err);
+    await cargarAcciones();
+  } catch (e) {
+    console.error(e);
     alert("Error al guardar");
   }
 });
 
 // ===============================
-// TOTAL ACUMULADO
+// CARGAR ACCIONES
 // ===============================
-async function cargarTotalAcumulado(uid) {
+async function cargarAcciones() {
   const q = query(
     collection(db, "acciones"),
-    where("uid", "==", uid)
+    where("uid", "==", currentUser.uid),
+    orderBy("fecha", "desc")
   );
 
   const snap = await getDocs(q);
-  let suma = 0;
 
+  let total = 0;
   snap.forEach(doc => {
-    suma += doc.data().total;
+    total += doc.data().total;
   });
 
-  totalAcumuladoTexto.textContent = suma.toFixed(2) + " €";
+  resumenEl.textContent = `Resultado total: ${total.toFixed(2)} €`;
 }
