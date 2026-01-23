@@ -30,8 +30,6 @@ button{
 }
 .green{background:#22c55e;color:black}
 .gray{background:#334155;color:white}
-.blue{background:#2563eb;color:white}
-.red{background:#ef4444;color:white}
 table{
   width:100%;
   border-collapse:collapse;
@@ -45,31 +43,20 @@ th,td{
 }
 .gain{color:#22c55e}
 .loss{color:#ef4444}
-.totalBox{
+.box{
   background:#020617;
-  padding:10px;
+  padding:12px;
   border-radius:8px;
   margin-top:10px;
-  font-size:18px;
-  font-weight:bold;
   text-align:center
 }
+.big{font-size:20px;font-weight:bold}
 </style>
 </head>
 
 <body>
 
 <h2>📈 Gestor de Acciones</h2>
-
-<div id="totalGlobal" class="totalBox">Total global: 0 €</div>
-
-<!-- ORDEN ABIERTAS -->
-<h3>↕️ Ordenar abiertas</h3>
-<select id="ordenAbiertas" onchange="pintarAbiertas()">
-  <option value="fecha">📅 Fecha de compra</option>
-  <option value="accion">🔤 Nombre acción</option>
-  <option value="importe">💰 Importe invertido</option>
-</select>
 
 <!-- NUEVA COMPRA -->
 <h3>➕ Nueva compra</h3>
@@ -90,10 +77,16 @@ th,td{
 <tbody id="tablaAbiertas"></tbody>
 </table>
 
+<!-- ARCHIVO ANUAL -->
+<h3>📁 Archivo anual</h3>
+<select id="anioSelect" onchange="pintarArchivo()"></select>
+<div id="archivo"></div>
+
 <script>
 let abiertas = JSON.parse(localStorage.getItem("abiertas")) || [];
+let archivo = JSON.parse(localStorage.getItem("archivo")) || {};
 
-// ===== COMPRAS =====
+// ===== GUARDAR COMPRA =====
 function guardarCompra(){
   if(!accion.value||!cantidad.value||!precioCompra.value||!fechaCompra.value){
     alert("Completa todos los campos"); return;
@@ -109,60 +102,119 @@ function guardarCompra(){
   pintarAbiertas();
 }
 
-// ===== ORDENAR ABIERTAS =====
-function ordenarAbiertas(){
-  const modo = document.getElementById("ordenAbiertas").value;
+// ===== CERRAR =====
+function cerrarOperacion(i){
+  const pv=document.getElementById("pv_"+i).value;
+  const fv=document.getElementById("fv_"+i).value;
+  if(!pv||!fv){alert("Precio y fecha de venta");return;}
 
-  if(modo==="accion"){
-    abiertas.sort((a,b)=>a.accion.localeCompare(b.accion));
-  }
-  if(modo==="fecha"){
-    abiertas.sort((a,b)=>a.fechaCompra.localeCompare(b.fechaCompra));
-  }
-  if(modo==="importe"){
-    abiertas.sort((a,b)=>
-      (b.cantidad*b.compra)-(a.cantidad*a.compra)
-    );
-  }
+  const o=abiertas.splice(i,1)[0];
+  o.venta=+pv;
+  o.fechaVenta=fv;
+  o.totalCompra=o.cantidad*o.compra;
+  o.totalVenta=o.cantidad*o.venta;
+  o.resultado=o.totalVenta-o.totalCompra;
+
+  const anio=fv.slice(0,4);
+  const mes=fv.slice(0,7);
+
+  if(!archivo[anio]) archivo[anio]={};
+  if(!archivo[anio][mes]) archivo[anio][mes]=[];
+  archivo[anio][mes].push(o);
+
+  guardar();
+  pintarAbiertas();
+  pintarSelectorAnios();
+  pintarArchivo();
 }
 
-// ===== PINTAR =====
+// ===== ABIERTAS =====
 function pintarAbiertas(){
-  ordenarAbiertas();
   tablaAbiertas.innerHTML="";
   abiertas.forEach((o,i)=>{
-    const total = (o.cantidad*o.compra).toFixed(2);
     tablaAbiertas.innerHTML+=`
-      <tr>
-        <td>${o.accion}</td>
-        <td>${o.cantidad}</td>
-        <td>${o.compra}</td>
-        <td>${total} €</td>
-        <td>${o.fechaCompra}</td>
-        <td>
-          <input id="pv_${i}" type="number" step="0.01" placeholder="Venta">
-          <input id="fv_${i}" type="date">
-          <button class="gray" onclick="cerrarOperacion(${i})">Cerrar</button>
-        </td>
-      </tr>`;
+    <tr>
+      <td>${o.accion}</td>
+      <td>${o.cantidad}</td>
+      <td>${o.compra}</td>
+      <td>${(o.cantidad*o.compra).toFixed(2)} €</td>
+      <td>${o.fechaCompra}</td>
+      <td>
+        <input id="pv_${i}" type="number" placeholder="Venta">
+        <input id="fv_${i}" type="date">
+        <button class="gray" onclick="cerrarOperacion(${i})">Cerrar</button>
+      </td>
+    </tr>`;
   });
 }
 
-// ===== CIERRE (BÁSICO) =====
-function cerrarOperacion(i){
-  if(!confirm("¿Cerrar esta operación?")) return;
-  abiertas.splice(i,1);
-  guardar();
-  pintarAbiertas();
+// ===== SELECTOR AÑOS =====
+function pintarSelectorAnios(){
+  anioSelect.innerHTML="";
+  Object.keys(archivo).sort().reverse().forEach(a=>{
+    anioSelect.innerHTML+=`<option value="${a}">${a}</option>`;
+  });
+}
+
+// ===== ARCHIVO =====
+function pintarArchivo(){
+  archivoDiv.innerHTML="";
+  const anio=anioSelect.value;
+  if(!archivo[anio]) return;
+
+  let totalAnual=0;
+
+  Object.keys(archivo[anio]).sort().forEach(mes=>{
+    let totalMes=0;
+    let filas="";
+    archivo[anio][mes].forEach(o=>{
+      totalMes+=o.resultado;
+      totalAnual+=o.resultado;
+      filas+=`
+      <tr>
+        <td>${o.accion}</td>
+        <td>${o.totalCompra.toFixed(2)} €</td>
+        <td>${o.totalVenta.toFixed(2)} €</td>
+        <td class="${o.resultado>=0?'gain':'loss'}">
+          ${o.resultado.toFixed(2)} €
+        </td>
+      </tr>`;
+    });
+    archivoDiv.innerHTML+=`
+      <h4>${mes}</h4>
+      <table>
+        <tr>
+          <th>Acción</th>
+          <th>Comprado</th>
+          <th>Vendido</th>
+          <th>Resultado</th>
+        </tr>
+        ${filas}
+      </table>
+      <strong class="${totalMes>=0?'gain':'loss'}">
+        Total mes: ${totalMes.toFixed(2)} €
+      </strong>`;
+  });
+
+  archivoDiv.innerHTML+=`
+    <div class="box big ${totalAnual>=0?'gain':'loss'}">
+      Resultado anual ${anio}: ${totalAnual.toFixed(2)} €
+    </div>`;
 }
 
 // ===== STORAGE =====
 function guardar(){
   localStorage.setItem("abiertas",JSON.stringify(abiertas));
+  localStorage.setItem("archivo",JSON.stringify(archivo));
 }
 
 const tablaAbiertas=document.getElementById("tablaAbiertas");
+const archivoDiv=document.getElementById("archivo");
+const anioSelect=document.getElementById("anioSelect");
+
 pintarAbiertas();
+pintarSelectorAnios();
+pintarArchivo();
 </script>
 
 </body>
