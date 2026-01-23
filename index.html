@@ -1,146 +1,35 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Gestor de Acciones</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 40px auto;
-    }
-    input, select, button {
-      width: 100%;
-      padding: 8px;
-      margin: 6px 0;
-    }
-    button {
-      cursor: pointer;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
 <body>
 
-<h1>Gestor de Acciones</h1>
+  <h1>Gestor de Acciones</h1>
 
-<button id="loginBtn">Iniciar sesión con Google</button>
-<p id="userInfo"></p>
+  <button id="loginBtn">Iniciar sesión con Google</button>
+  <p id="userEmail"></p>
 
-<hr>
+  <h2>Nueva acción</h2>
 
-<h2>Nueva acción</h2>
+  <input id="nombre" placeholder="Nombre de la acción" />
+  <select id="tipo">
+    <option value="Compra">Compra</option>
+    <option value="Venta">Venta</option>
+  </select>
+  <input id="cantidad" type="number" placeholder="Número de acciones" />
+  <input id="precio" type="number" step="0.01" placeholder="Precio por acción (€)" />
 
-<input id="nombre" placeholder="Nombre de la acción">
-<select id="tipo">
-  <option value="Compra">Compra</option>
-  <option value="Venta">Venta</option>
-</select>
+  <p><strong>Total: <span id="total">0</span> €</strong></p>
 
-<input id="cantidad" type="number" placeholder="Número de acciones">
-<input id="precio" type="number" step="0.01" placeholder="Precio por acción (€)">
+  <button id="guardarBtn">Guardar acción</button>
 
-<p><strong>Total:</strong> <span id="total">0</span> €</p>
+  <h2>Resumen</h2>
+  <p>Resultado total: <span id="resumen">0</span> €</p>
 
-<button id="guardar">Guardar acción</button>
-
-<hr>
-
-<h3>Resumen</h3>
-<p>Resultado total: <span id="resultado">0</span> €</p>
-
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithRedirect,
-    getRedirectResult,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import {
-    getFirestore,
-    collection,
-    addDoc,
-    query,
-    where,
-    getDocs
-  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-  // 🔐 CONFIGURACIÓN FIREBASE (SOLO ESTA)
-  const firebaseConfig = {
-    apiKey: "AIzaSyD3XGLrrvUTNHqk8P0gU8ROeyKBApiG7o",
-    authDomain: "gestor-acciones.firebaseapp.com",
-    projectId: "gestor-acciones",
-    storageBucket: "gestor-acciones.appspot.com",
-    messagingSenderId: "682376422747",
-    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const provider = new GoogleAuthProvider();
-
-  let usuario = null;
-
-  document.getElementById("loginBtn").onclick = () => {
-    signInWithRedirect(auth, provider);
-  };
-
-  getRedirectResult(auth).catch(() => {});
-
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      usuario = user;
-      document.getElementById("userInfo").textContent = user.email;
-      cargarResumen();
-    }
-  });
-
-  const cantidadInput = document.getElementById("cantidad");
-  const precioInput = document.getElementById("precio");
-
-  function actualizarTotal() {
-    const total = (cantidadInput.value || 0) * (precioInput.value || 0);
-    document.getElementById("total").textContent = total.toFixed(2);
-  }
-
-  cantidadInput.oninput = actualizarTotal;
-  precioInput.oninput = actualizarTotal;
-
-  document.getElementById("guardar").onclick = async () => {
-    if (!usuario) return alert("Inicia sesión primero");
-
-    const cantidad = Number(cantidadInput.value);
-    const precio = Number(precioInput.value);
-    const total = cantidad * precio;
-
-    await addDoc(collection(db, "acciones"), {
-      uid: usuario.uid,
-      nombre: document.getElementById("nombre").value,
-      tipo: document.getElementById("tipo").value,
-      cantidad,
-      precio,
-      total,
-      fecha: new Date()
-    });
-
-    cargarResumen();
-  };
-
-  async function cargarResumen() {
-    const q = query(
-      collection(db, "acciones"),
-      where("uid", "==", usuario.uid)
-    );
-
-    const snap = await getDocs(q);
-    let suma = 0;
-
-    snap.forEach(doc => suma += doc.data().total);
-    document.getElementById("resultado").textContent = suma.toFixed(2);
-  }
-</script>
-
+  <!-- APP -->
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
