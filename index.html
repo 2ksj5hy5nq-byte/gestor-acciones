@@ -26,7 +26,6 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 
 <h2>📈 Gestor de Acciones</h2>
 
-<!-- ===== NUEVA COMPRA ===== -->
 <div class="card">
   <h3>Nueva compra</h3>
   <input id="accion" placeholder="Nombre">
@@ -36,13 +35,11 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
   <button onclick="guardarCompra()">Guardar compra</button>
 </div>
 
-<!-- ===== ABIERTAS ===== -->
 <div class="card">
   <h3>📂 Operaciones abiertas</h3>
   <div id="abiertas"></div>
 </div>
 
-<!-- ===== CERRADAS ===== -->
 <div class="card">
   <h3>📁 Operaciones cerradas</h3>
   <select id="filtroMes" onchange="renderCerradas()">
@@ -52,23 +49,18 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
   <div id="cerradas"></div>
 </div>
 
-<!-- ===== RESUMEN ===== -->
 <div class="card">
   <h3>📊 Resumen</h3>
   <div id="resumen"></div>
 </div>
 
-<!-- ===== DESHACER ===== -->
 <div class="card" id="undoBox" style="display:none">
   <button class="undo" onclick="deshacerBorrado()">↩️ Deshacer borrado</button>
 </div>
 
-<!-- ===== EXPORTAR / ENVIAR ===== -->
 <div class="card">
-  <h3>📤 Exportar / Enviar</h3>
-  <button class="secondary" onclick="exportarExcel()">📊 Exportar Excel</button>
-  <button class="secondary" onclick="enviarWhatsApp()">📲 Enviar WhatsApp</button>
-  <button class="secondary" onclick="enviarMail()">✉️ Enviar Mail</button>
+  <h3>📤 Exportar</h3>
+  <button class="secondary" onclick="exportarExcel()">📊 Exportar Excel (según filtro)</button>
 </div>
 
 <script>
@@ -77,7 +69,7 @@ let ultimoBorrado = null;
 
 function guardarEstado(){ localStorage.setItem("ops",JSON.stringify(operaciones)); }
 
-/* ===== GUARDAR COMPRA ===== */
+/* ===== GUARDAR ===== */
 function guardarCompra(){
   const a=accion.value.trim();
   const c=+cantidad.value;
@@ -91,23 +83,25 @@ function guardarCompra(){
     precioCompra:p,
     fechaCompra:f,
     abierta:true,
-    precioVenta:"",
-    fechaVenta:""
+    precioVenta:null,
+    fechaVenta:null
   });
   guardarEstado(); render();
 }
 
 /* ===== CERRAR ===== */
 function cerrarOperacion(id){
-  const pv=+document.getElementById("pv_"+id).value;
+  const pv=document.getElementById("pv_"+id).value;
   const fv=document.getElementById("fv_"+id).value;
   if(!pv||!fv){alert("Precio y día de venta");return;}
   const o=operaciones.find(x=>x.id===id);
-  o.precioVenta=pv; o.fechaVenta=fv; o.abierta=false;
+  o.precioVenta=+pv;
+  o.fechaVenta=fv;
+  o.abierta=false;
   guardarEstado(); render();
 }
 
-/* ===== BORRAR + DESHACER ===== */
+/* ===== BORRAR / DESHACER ===== */
 function borrarOperacion(id){
   if(!confirm("¿Borrar esta operación?"))return;
   ultimoBorrado=operaciones.find(o=>o.id===id);
@@ -123,59 +117,50 @@ function deshacerBorrado(){
   guardarEstado(); render();
 }
 
-/* ===== TEXTO RESUMEN ===== */
-function generarTexto(){
-  const mes=filtroMes.value;
-  let texto="📈 RESUMEN OPERACIONES\n\n";
-  let total=0;
+/* ===== EXPORTAR EXCEL SEGÚN FILTRO ===== */
+function exportarExcel(){
+  const filtro=filtroMes.value;
 
-  operaciones.filter(o=>!o.abierta && (!mes||o.fechaVenta.startsWith(mes)))
-  .forEach(o=>{
+  const filtradas = operaciones.filter(o=>{
+    if(o.abierta) return false;
+    if(!filtro) return true;               // todo
+    if(filtro.length===4)                  // año
+      return o.fechaVenta.startsWith(filtro);
+    return o.fechaVenta.startsWith(filtro); // mes
+  });
+
+  if(filtradas.length===0){
+    alert("No hay operaciones para exportar");
+    return;
+  }
+
+  let csv="Acción,Cantidad,Precio compra,Fecha compra,Precio venta,Fecha venta,Resultado\n";
+
+  filtradas.forEach(o=>{
     const inv=o.cantidad*o.precioCompra;
     const rec=o.cantidad*o.precioVenta;
     const res=rec-inv;
-    total+=res;
-    texto+=`${o.accion}\n${o.fechaCompra} → ${inv.toFixed(2)} €\n${o.fechaVenta} → ${rec.toFixed(2)} €\nResultado: ${res.toFixed(2)} €\n\n`;
+    csv+=`${o.accion},${o.cantidad},${o.precioCompra},${o.fechaCompra},${o.precioVenta},${o.fechaVenta},${res.toFixed(2)}\n`;
   });
 
-  texto+=`TOTAL: ${total.toFixed(2)} €`;
-  return texto;
-}
-
-/* ===== WHATSAPP ===== */
-function enviarWhatsApp(){
-  const texto=encodeURIComponent(generarTexto());
-  window.location.href=`https://wa.me/?text=${texto}`;
-}
-
-/* ===== MAIL ===== */
-function enviarMail(){
-  const asunto=encodeURIComponent("Resumen operaciones");
-  const cuerpo=encodeURIComponent(generarTexto());
-  window.location.href=`mailto:?subject=${asunto}&body=${cuerpo}`;
-}
-
-/* ===== EXCEL ===== */
-function exportarExcel(){
-  let csv="Acción,Cantidad,Precio compra,Fecha compra,Precio venta,Fecha venta,Resultado\n";
-  operaciones.forEach(o=>{
-    const res=o.abierta?"":((o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra)).toFixed(2);
-    csv+=`${o.accion},${o.cantidad},${o.precioCompra},${o.fechaCompra},${o.precioVenta},${o.fechaVenta},${res}\n`;
-  });
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
   a.href=url;
-  a.download="operaciones.csv";
+  a.download=filtro?`operaciones_${filtro}.csv`:"operaciones_todas.csv";
   a.click();
   URL.revokeObjectURL(url);
 }
 
 /* ===== RENDER ===== */
 function render(){
-  renderAbiertas(); renderFiltroMes(); renderCerradas(); renderResumen();
+  renderAbiertas();
+  renderFiltroMes();
+  renderCerradas();
+  renderResumen();
 }
 
+/* ===== ABIERTAS ===== */
 function renderAbiertas(){
   abiertas.innerHTML="";
   operaciones.filter(o=>o.abierta).forEach(o=>{
@@ -193,17 +178,27 @@ function renderAbiertas(){
   });
 }
 
+/* ===== FILTRO ===== */
 function renderFiltroMes(){
   const meses=[...new Set(operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,7)))];
+  const años=[...new Set(operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,4)))];
+
   filtroMes.innerHTML=`<option value="">— Todas —</option>`;
-  meses.sort().forEach(m=>filtroMes.innerHTML+=`<option>${m}</option>`);
+  años.sort().forEach(a=>filtroMes.innerHTML+=`<option value="${a}">Año ${a}</option>`);
+  meses.sort().forEach(m=>filtroMes.innerHTML+=`<option value="${m}">${m}</option>`);
 }
 
+/* ===== CERRADAS ===== */
 function renderCerradas(){
   cerradas.innerHTML=""; totalMes.innerHTML="";
-  const mes=filtroMes.value; let total=0;
-  operaciones.filter(o=>!o.abierta && (!mes||o.fechaVenta.startsWith(mes)))
-  .forEach(o=>{
+  const f=filtroMes.value; let total=0;
+
+  operaciones.filter(o=>{
+    if(o.abierta) return false;
+    if(!f) return true;
+    if(f.length===4) return o.fechaVenta.startsWith(f);
+    return o.fechaVenta.startsWith(f);
+  }).forEach(o=>{
     const inv=o.cantidad*o.precioCompra;
     const rec=o.cantidad*o.precioVenta;
     const res=rec-inv; total+=res;
@@ -220,23 +215,27 @@ function renderCerradas(){
         <div class="${res>=0?'ganancia':'perdida'}">RESULTADO: ${res.toFixed(2)} €</div>
       </div>`;
   });
-  if(mes){
+
+  if(f){
     totalMes.innerHTML=`<div class="${total>=0?'ganancia':'perdida'} totalMes">
-      TOTAL MES: ${total.toFixed(2)} €
+      TOTAL ${f}: ${total.toFixed(2)} €
     </div>`;
   }
 }
 
+/* ===== RESUMEN ===== */
 function renderResumen(){
   const hoy=new Date();
   const mes=hoy.toISOString().slice(0,7);
   const año=hoy.getFullYear().toString();
   let m=0,a=0;
+
   operaciones.filter(o=>!o.abierta).forEach(o=>{
     const r=(o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
     if(o.fechaVenta.startsWith(mes))m+=r;
     if(o.fechaVenta.startsWith(año))a+=r;
   });
+
   resumen.innerHTML=`
     <div class="${m>=0?'ganancia':'perdida'}">MES EN CURSO: ${m.toFixed(2)} €</div>
     <div class="${a>=0?'ganancia':'perdida'}">AÑO ${año}: ${a.toFixed(2)} €</div>`;
