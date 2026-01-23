@@ -2,157 +2,209 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestor de Acciones</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<link rel="apple-touch-icon" href="icon.png">
-<link rel="icon" href="icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
 
 <style>
-body{
-  font-family: Arial, sans-serif;
-  background:#0f172a;
-  color:white;
-  padding:14px
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0f172a;
+  color: white;
+  padding: 16px;
 }
-h2,h3,h4{margin-top:20px}
-input,button,select{
-  width:100%;
-  padding:8px;
-  margin:6px 0;
+
+h1,h2,h3 { margin-top: 20px; }
+
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border-radius: 8px;
+  border: none;
 }
-button{
-  border:none;
-  border-radius:6px;
-  font-weight:bold
+
+button {
+  background: #22c55e;
+  font-weight: bold;
 }
-.green{background:#22c55e;color:black}
-.gray{background:#334155;color:white}
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:10px
+
+.card {
+  background: #020617;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 10px;
 }
-th,td{
-  border-bottom:1px solid #334155;
-  padding:6px;
-  text-align:center;
-  font-size:14px
-}
-.gain{color:#22c55e}
-.loss{color:#ef4444}
+
+.small { font-size: 13px; opacity: .85; }
+.green { color:#22c55e }
+.red { color:#ef4444 }
+hr { border:0;border-top:1px solid #334155;margin:8px 0 }
 </style>
 </head>
 
 <body>
 
-<h2>📈 Gestor de Acciones</h2>
+<h1>📈 Gestor de Acciones</h1>
 
-<!-- NUEVA COMPRA -->
-<h3>➕ Nueva compra</h3>
-
-<!-- ACCIÓN CON DESPLEGABLE -->
-<input id="accion" list="listaAcciones" placeholder="Acción (elige o escribe)">
-<datalist id="listaAcciones"></datalist>
-
+<div class="card">
+<h2>Nueva compra</h2>
+<input id="accion" placeholder="Acción">
 <input id="cantidad" type="number" placeholder="Cantidad">
-<input id="precioCompra" type="number" step="0.01" placeholder="Precio compra">
-<input id="fechaCompra" type="date">
+<input id="precio" type="number" step="0.01" placeholder="Precio compra">
+<button onclick="guardarCompra()">Guardar compra</button>
+</div>
 
-<button class="green" onclick="guardarCompra()">Guardar compra</button>
+<div class="card">
+<h2>📅 Filtro fechas</h2>
+<input type="date" id="desde">
+<input type="date" id="hasta">
+<button onclick="render()">Aplicar filtro</button>
+</div>
 
-<!-- ABIERTAS -->
-<h3>📂 Operaciones abiertas</h3>
-<table>
-<thead>
-<tr>
-<th>Acción</th><th>Cant.</th><th>Compra</th><th>Total</th><th>Fecha</th><th>Cerrar</th>
-</tr>
-</thead>
-<tbody id="tablaAbiertas"></tbody>
-</table>
+<div class="card">
+<button onclick="deshacer()">↩️ Deshacer última acción</button>
+<button onclick="exportarCSV()">📤 Exportar Excel</button>
+<button onclick="compartir()">📲 WhatsApp / Mail</button>
+<button onclick="backup()">💾 Backup</button>
+<input type="file" onchange="restaurar(event)">
+</div>
+
+<h2>📂 Abiertas</h2>
+<div id="abiertas"></div>
+
+<h2>📁 Cerradas por mes</h2>
+<div id="cerradas"></div>
+
+<div class="card">
+<h2>📊 Resumen</h2>
+<p>Total general: <strong id="total"></strong></p>
+<p>Capital invertido: <strong id="capital"></strong></p>
+<p>Resumen anual:</p>
+<div id="anual"></div>
+</div>
 
 <script>
-let abiertas = JSON.parse(localStorage.getItem("abiertas")) || [];
-let acciones = JSON.parse(localStorage.getItem("acciones")) || [];
+let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
+let historial = JSON.parse(localStorage.getItem("hist")) || [];
 
-// ===== GUARDAR COMPRA =====
-function guardarCompra(){
-  const nombre = accion.value.trim().toUpperCase();
+function guardar() {
+  localStorage.setItem("ops", JSON.stringify(operaciones));
+  localStorage.setItem("hist", JSON.stringify(historial));
+  render();
+}
 
-  if(!nombre || !cantidad.value || !precioCompra.value || !fechaCompra.value){
-    alert("Completa todos los campos"); 
-    return;
+function guardarCompra() {
+  historial.push(JSON.stringify(operaciones));
+  operaciones.push({
+    accion: accion.value.toUpperCase(),
+    cantidad:+cantidad.value,
+    compra:+precio.value,
+    fechaCompra:new Date().toISOString(),
+    abierta:true
+  });
+  guardar();
+}
+
+function cerrar(i, pv) {
+  historial.push(JSON.stringify(operaciones));
+  operaciones[i].venta = pv;
+  operaciones[i].fechaVenta = new Date().toISOString();
+  operaciones[i].abierta = false;
+  guardar();
+}
+
+function deshacer() {
+  if (!historial.length) return alert("Nada que deshacer");
+  operaciones = JSON.parse(historial.pop());
+  guardar();
+}
+
+function render() {
+  abiertas.innerHTML = "";
+  cerradas.innerHTML = "";
+  anual.innerHTML = "";
+
+  let total = 0, capital = 0, meses = {}, años = {};
+
+  const d = desde.value, h = hasta.value;
+
+  operaciones.forEach((o,i)=>{
+    if (d && o.fechaCompra < d) return;
+    if (h && o.fechaCompra > h) return;
+
+    if (o.abierta) {
+      capital += o.cantidad * o.compra;
+      abiertas.innerHTML += `
+      <div class="card">
+        ${o.accion} — ${o.cantidad} × ${o.compra}
+        <input type="number" id="v${i}" placeholder="Venta">
+        <button onclick="cerrar(${i},+document.getElementById('v${i}').value)">Cerrar</button>
+      </div>`;
+    } else {
+      const r = (o.venta-o.compra)*o.cantidad;
+      total += r;
+      const mes = o.fechaVenta.slice(0,7);
+      const año = o.fechaVenta.slice(0,4);
+      meses[mes] ??= [];
+      meses[mes].push({...o,r});
+      años[año] = (años[año]||0)+r;
+    }
+  });
+
+  for (const m in meses) {
+    const sm = meses[m].reduce((a,b)=>a+b.r,0);
+    cerradas.innerHTML += `
+    <div class="card">
+      <strong>${m}</strong>
+      ${meses[m].map(o=>`
+        <div class="small">${o.accion} 
+        <span class="${o.r>=0?'green':'red'}">${o.r.toFixed(2)}€</span></div>`).join("")}
+      <hr>Total mes: ${sm.toFixed(2)}€
+    </div>`;
   }
 
-  // Guardar acción si es nueva
-  if(!acciones.includes(nombre)){
-    acciones.push(nombre);
-    acciones.sort();
-    localStorage.setItem("acciones", JSON.stringify(acciones));
-    pintarListaAcciones();
+  for (const a in años) {
+    anual.innerHTML += `<div>${a}: <strong>${años[a].toFixed(2)}€</strong></div>`;
   }
 
-  abiertas.push({
-    accion: nombre,
-    cantidad: +cantidad.value,
-    compra: +precioCompra.value,
-    fechaCompra: fechaCompra.value
+  total.textContent = total.toFixed(2)+" €";
+  capital.textContent = capital.toFixed(2)+" €";
+}
+
+function exportarCSV() {
+  let csv = "Accion,Cantidad,Compra,Venta,Resultado\n";
+  operaciones.forEach(o=>{
+    if(!o.abierta){
+      csv+=`${o.accion},${o.cantidad},${o.compra},${o.venta},${(o.venta-o.compra)*o.cantidad}\n`
+    }
   });
-
-  guardar();
-  accion.value = cantidad.value = precioCompra.value = fechaCompra.value = "";
-  pintarAbiertas();
+  const blob = new Blob([csv],{type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "acciones.csv";
+  a.click();
 }
 
-// ===== LISTA ACCIONES =====
-function pintarListaAcciones(){
-  listaAcciones.innerHTML = "";
-  acciones.forEach(a=>{
-    listaAcciones.innerHTML += `<option value="${a}">`;
-  });
+function compartir() {
+  const texto = encodeURIComponent("Resumen acciones: "+total.textContent);
+  window.open(`https://wa.me/?text=${texto}`);
 }
 
-// ===== ABIERTAS =====
-function pintarAbiertas(){
-  tablaAbiertas.innerHTML = "";
-  abiertas.forEach((o,i)=>{
-    tablaAbiertas.innerHTML += `
-    <tr>
-      <td>${o.accion}</td>
-      <td>${o.cantidad}</td>
-      <td>${o.compra}</td>
-      <td>${(o.cantidad*o.compra).toFixed(2)} €</td>
-      <td>${o.fechaCompra}</td>
-      <td>
-        <input id="pv_${i}" type="number" placeholder="Venta">
-        <input id="fv_${i}" type="date">
-        <button class="gray" onclick="cerrarOperacion(${i})">Cerrar</button>
-      </td>
-    </tr>`;
-  });
+function backup() {
+  const blob = new Blob([JSON.stringify(operaciones)],{type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "backup_acciones.json";
+  a.click();
 }
 
-// ===== CERRAR (BÁSICO) =====
-function cerrarOperacion(i){
-  if(!confirm("¿Cerrar esta operación?")) return;
-  abiertas.splice(i,1);
-  guardar();
-  pintarAbiertas();
+function restaurar(e) {
+  const r = new FileReader();
+  r.onload = ()=>{ operaciones = JSON.parse(r.result); guardar(); };
+  r.readAsText(e.target.files[0]);
 }
 
-// ===== STORAGE =====
-function guardar(){
-  localStorage.setItem("abiertas", JSON.stringify(abiertas));
-}
-
-const tablaAbiertas = document.getElementById("tablaAbiertas");
-const listaAcciones = document.getElementById("listaAcciones");
-
-pintarListaAcciones();
-pintarAbiertas();
+render();
 </script>
-
 </body>
 </html>
