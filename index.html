@@ -6,156 +6,233 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-body {
+body{
   font-family: Arial, sans-serif;
-  background: #0f172a;
-  color: white;
-  padding: 15px;
+  background:#0f172a;
+  color:white;
+  padding:14px
 }
-input, select, button {
-  width: 100%;
-  padding: 8px;
-  margin: 6px 0;
+h2,h3,h4{margin-top:20px}
+input,button{
+  width:100%;
+  padding:8px;
+  margin:6px 0;
 }
-button {
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 6px;
+button{
+  border:none;
+  border-radius:6px;
+  font-weight:bold
 }
-button.edit { background: #f59e0b; }
-button.delete { background: #c0392b; }
-table {
-  width: 100%;
-  margin-top: 15px;
-  border-collapse: collapse;
+.green{background:#22c55e;color:black}
+.gray{background:#334155;color:white}
+.blue{background:#2563eb;color:white}
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px
 }
-th, td {
-  border-bottom: 1px solid #334155;
-  padding: 6px;
-  text-align: center;
-  font-size: 14px;
+th,td{
+  border-bottom:1px solid #334155;
+  padding:6px;
+  text-align:center;
+  font-size:14px
 }
-.total {
-  font-size: 18px;
-  margin-top: 10px;
+.gain{color:#22c55e}
+.loss{color:#ef4444}
+.filtro{
+  background:#020617;
+  padding:10px;
+  border-radius:8px;
+  margin-top:10px
 }
 </style>
 </head>
 
 <body>
 
-<h2>📊 Gestor de Acciones</h2>
+<h2>📈 Gestor de Acciones</h2>
 
-<input id="accion" placeholder="Acción (ej. AAPL)">
-<select id="tipo">
-  <option value="COMPRA">Compra</option>
-  <option value="VENTA">Venta</option>
-</select>
+<!-- NUEVA COMPRA -->
+<h3>➕ Nueva compra</h3>
+<input id="accion" placeholder="Acción">
 <input id="cantidad" type="number" placeholder="Cantidad">
-<input id="precio" type="number" step="0.01" placeholder="Precio">
+<input id="precioCompra" type="number" step="0.01" placeholder="Precio compra">
+<input id="fechaCompra" type="date">
+<button class="green" onclick="guardarCompra()">Guardar compra</button>
 
-<button onclick="guardar()">Guardar operación</button>
-
-<div class="total" id="resultado">Total: 0 €</div>
-
+<!-- ABIERTAS -->
+<h3>📂 Operaciones abiertas</h3>
 <table>
 <thead>
 <tr>
-  <th>Acción</th>
-  <th>Tipo</th>
-  <th>Cant.</th>
-  <th>Precio</th>
-  <th>Total</th>
-  <th>✏️</th>
-  <th>🗑</th>
+<th>Acción</th><th>Cant.</th><th>Compra</th><th>Fecha</th><th>Cerrar</th>
 </tr>
 </thead>
-<tbody id="tabla"></tbody>
+<tbody id="tablaAbiertas"></tbody>
 </table>
 
+<!-- FILTROS -->
+<h3>🔎 Filtros (ventas)</h3>
+<div class="filtro">
+  Buscar acción:
+  <input id="buscar" placeholder="Ej: AAPL, BBVA" oninput="pintarHistorico()">
+  Desde:
+  <input id="desde" type="date">
+  Hasta:
+  <input id="hasta" type="date">
+  <button class="gray" onclick="pintarHistorico()">Aplicar filtros</button>
+</div>
+
+<!-- EXPORTAR -->
+<h3>📤 Exportar</h3>
+<button class="blue" onclick="exportarCSV()">📊 Exportar a Excel / Compartir</button>
+
+<!-- HISTÓRICO -->
+<h3>📆 Histórico por meses</h3>
+<div id="historico"></div>
+
 <script>
-let ops = JSON.parse(localStorage.getItem("ops")) || [];
-let editIndex = null;
+let abiertas = JSON.parse(localStorage.getItem("abiertas")) || [];
+let historico = JSON.parse(localStorage.getItem("historico")) || {};
 
-function guardar() {
-  const accion = document.getElementById("accion").value.trim();
-  const tipo = document.getElementById("tipo").value;
-  const cantidad = Number(document.getElementById("cantidad").value);
-  const precio = Number(document.getElementById("precio").value);
-
-  if (!accion || !cantidad || !precio) {
-    alert("Completa todos los campos");
-    return;
+// ===== COMPRAS =====
+function guardarCompra(){
+  if(!accion.value||!cantidad.value||!precioCompra.value||!fechaCompra.value){
+    alert("Completa todos los campos"); return;
   }
-
-  const signo = tipo === "VENTA" ? -1 : 1;
-  const total = cantidad * precio * signo;
-  const data = { accion, tipo, cantidad, precio, total };
-
-  // CONFIRMACIÓN AL EDITAR (sobrescribir)
-  if (editIndex !== null) {
-    const ok = confirm("¿Guardar cambios y sobrescribir esta operación?");
-    if (!ok) return;
-    ops[editIndex] = data;
-    editIndex = null;
-  } else {
-    ops.push(data);
-  }
-
-  localStorage.setItem("ops", JSON.stringify(ops));
-  limpiar();
-  render();
+  abiertas.push({
+    accion: accion.value.toUpperCase(),
+    cantidad:+cantidad.value,
+    compra:+precioCompra.value,
+    fechaCompra:fechaCompra.value
+  });
+  guardar();
+  accion.value=cantidad.value=precioCompra.value=fechaCompra.value="";
+  pintarAbiertas();
 }
 
-function editar(i) {
-  const o = ops[i];
-  document.getElementById("accion").value = o.accion;
-  document.getElementById("tipo").value = o.tipo;
-  document.getElementById("cantidad").value = o.cantidad;
-  document.getElementById("precio").value = o.precio;
-  editIndex = i;
+function cerrarOperacion(i){
+  const pv = document.getElementById("pv_"+i).value;
+  const fv = document.getElementById("fv_"+i).value;
+  if(!pv||!fv){alert("Precio y fecha de venta");return;}
+
+  const o = abiertas.splice(i,1)[0];
+  o.venta = +pv;
+  o.fechaVenta = fv;
+  o.totalCompra = o.cantidad * o.compra;
+  o.totalVenta = o.cantidad * o.venta;
+  o.resultado = o.totalVenta - o.totalCompra;
+
+  const mes = fv.slice(0,7);
+  if(!historico[mes]) historico[mes]=[];
+  historico[mes].push(o);
+
+  guardar();
+  pintarAbiertas();
+  pintarHistorico();
 }
 
-function borrarUno(i) {
-  const ok = confirm("¿Seguro que quieres borrar esta operación?");
-  if (!ok) return;
-  ops.splice(i, 1);
-  localStorage.setItem("ops", JSON.stringify(ops));
-  render();
-}
-
-function limpiar() {
-  document.getElementById("accion").value = "";
-  document.getElementById("cantidad").value = "";
-  document.getElementById("precio").value = "";
-}
-
-function render() {
-  const tabla = document.getElementById("tabla");
-  tabla.innerHTML = "";
-  let suma = 0;
-
-  ops.forEach((o, i) => {
-    suma += o.total;
-    tabla.innerHTML += `
+// ===== PINTAR =====
+function pintarAbiertas(){
+  tablaAbiertas.innerHTML="";
+  abiertas.forEach((o,i)=>{
+    tablaAbiertas.innerHTML+=`
       <tr>
         <td>${o.accion}</td>
-        <td>${o.tipo}</td>
         <td>${o.cantidad}</td>
-        <td>${o.precio}</td>
-        <td>${o.total.toFixed(2)} €</td>
-        <td><button class="edit" onclick="editar(${i})">✏️</button></td>
-        <td><button class="delete" onclick="borrarUno(${i})">🗑</button></td>
-      </tr>
-    `;
+        <td>${o.compra}</td>
+        <td>${o.fechaCompra}</td>
+        <td>
+          <input id="pv_${i}" type="number" step="0.01" placeholder="Venta">
+          <input id="fv_${i}" type="date">
+          <button class="gray" onclick="cerrarOperacion(${i})">Cerrar</button>
+        </td>
+      </tr>`;
   });
-
-  document.getElementById("resultado").textContent =
-    "Total: " + suma.toFixed(2) + " €";
 }
 
-render();
+function pintarHistorico(){
+  const d = desde.value;
+  const h = hasta.value;
+  const b = buscar.value.toUpperCase();
+  historicoDiv.innerHTML="";
+
+  Object.keys(historico).sort().reverse().forEach(mes=>{
+    let totalMes=0;
+    let filas="";
+
+    historico[mes]
+      .sort((a,b)=>a.fechaVenta.localeCompare(b.fechaVenta))
+      .forEach(o=>{
+        if(
+          (!d||o.fechaVenta>=d) &&
+          (!h||o.fechaVenta<=h) &&
+          (!b||o.accion.includes(b))
+        ){
+          totalMes+=o.resultado;
+          filas+=`
+            <tr>
+              <td>${o.accion}</td>
+              <td class="${o.resultado>=0?'gain':'loss'}">
+                ${o.resultado.toFixed(2)} €
+              </td>
+              <td>${o.fechaVenta}</td>
+            </tr>`;
+        }
+      });
+
+    if(filas){
+      historicoDiv.innerHTML+=`
+        <h4>${mes}</h4>
+        <table>
+          <tr><th>Acción</th><th>Resultado</th><th>Fecha</th></tr>
+          ${filas}
+        </table>
+        <strong class="${totalMes>=0?'gain':'loss'}">
+          Total mes: ${totalMes.toFixed(2)} €
+        </strong>`;
+    }
+  });
+}
+
+// ===== EXPORTAR CSV =====
+function exportarCSV(){
+  let csv = "Acción;Cantidad;Precio Compra;Precio Venta;Fecha Compra;Fecha Venta;Resultado\n";
+
+  Object.values(historico).flat().forEach(o=>{
+    csv += `${o.accion};${o.cantidad};${o.compra};${o.venta};${o.fechaCompra};${o.fechaVenta};${o.resultado.toFixed(2)}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const file = new File([blob], "operaciones.csv", { type: "text/csv" });
+
+  // iPhone / Safari → menú compartir
+  if (navigator.share) {
+    navigator.share({
+      title: "Operaciones",
+      text: "Exportación de operaciones",
+      files: [file]
+    });
+  } else {
+    // Descarga normal (PC)
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "operaciones.csv";
+    link.click();
+  }
+}
+
+// ===== STORAGE =====
+function guardar(){
+  localStorage.setItem("abiertas",JSON.stringify(abiertas));
+  localStorage.setItem("historico",JSON.stringify(historico));
+}
+
+const tablaAbiertas=document.getElementById("tablaAbiertas");
+const historicoDiv=document.getElementById("historico");
+
+pintarAbiertas();
+pintarHistorico();
 </script>
 
 </body>
