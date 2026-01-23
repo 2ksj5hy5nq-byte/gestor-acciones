@@ -1,9 +1,13 @@
+// ===============================
+// Firebase SDKs (CDN, módulo)
+// ===============================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
-  onAuthStateChanged
+  onAuthStateChanged,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore,
@@ -11,11 +15,15 @@ import {
   addDoc,
   query,
   where,
-  getDocs
+  getDocs,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// ===============================
+// Firebase config (TU PROYECTO)
+// ===============================
 const firebaseConfig = {
-  apiKey: "PEGA_AQUI_TU_BROWSER_KEY_REAL",
+  apiKey: "AIzaSyD3XGLrrvUTNHqk8P0gU8R0eyKBApig7o",
   authDomain: "gestor-acciones.firebaseapp.com",
   projectId: "gestor-acciones",
   storageBucket: "gestor-acciones.appspot.com",
@@ -23,65 +31,118 @@ const firebaseConfig = {
   appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
 };
 
+// ===============================
+// Inicializar Firebase
+// ===============================
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-let usuario = null;
+// ===============================
+// DOM
+// ===============================
+const loginBtn = document.getElementById("loginBtn");
+const userInfo = document.getElementById("userInfo");
 
-document.getElementById("loginBtn").addEventListener("click", async () => {
+const nombreInput = document.getElementById("nombre");
+const tipoInput = document.getElementById("tipo");
+const numAccionesInput = document.getElementById("numAcciones");
+const precioInput = document.getElementById("precio");
+const totalTexto = document.getElementById("totalOperacion");
+const guardarBtn = document.getElementById("guardarBtn");
+const totalAcumuladoTexto = document.getElementById("totalAcumulado");
+
+// ===============================
+// LOGIN GOOGLE
+// ===============================
+loginBtn.addEventListener("click", async () => {
   try {
     await signInWithPopup(auth, provider);
-  } catch (e) {
-    alert("Error al iniciar sesión");
-    console.error(e);
+  } catch (err) {
+    console.error("Error login:", err);
+    alert("Error al iniciar sesión con Google");
   }
 });
 
-onAuthStateChanged(auth, user => {
+// ===============================
+// ESTADO DE SESIÓN
+// ===============================
+onAuthStateChanged(auth, async (user) => {
   if (user) {
-    usuario = user;
-    document.getElementById("user").innerText = user.email;
-    cargarResumen();
+    userInfo.textContent = user.email;
+    await cargarTotalAcumulado(user.uid);
+  } else {
+    userInfo.textContent = "No autenticado";
+    totalAcumuladoTexto.textContent = "0.00 €";
   }
 });
 
-const cantidad = document.getElementById("cantidad");
-const precio = document.getElementById("precio");
-const totalSpan = document.getElementById("total");
-
-function recalcular() {
-  const total = (Number(cantidad.value) || 0) * (Number(precio.value) || 0);
-  totalSpan.innerText = total.toFixed(2);
+// ===============================
+// CÁLCULO EN TIEMPO REAL
+// ===============================
+function calcularTotal() {
+  const n = Number(numAccionesInput.value);
+  const p = Number(precioInput.value);
+  const total = n * p;
+  totalTexto.textContent = isNaN(total) ? "0.00 €" : total.toFixed(2) + " €";
 }
 
-cantidad.addEventListener("input", recalcular);
-precio.addEventListener("input", recalcular);
+numAccionesInput.addEventListener("input", calcularTotal);
+precioInput.addEventListener("input", calcularTotal);
 
-document.getElementById("guardar").addEventListener("click", async () => {
-  if (!usuario) {
-    alert("Inicia sesión primero");
+// ===============================
+// GUARDAR ACCIÓN
+// ===============================
+guardarBtn.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Debes iniciar sesión");
     return;
   }
 
-  await addDoc(collection(db, "acciones"), {
-    uid: usuario.uid,
-    nombre: document.getElementById("nombre").value,
-    tipo: document.getElementById("tipo").value,
-    cantidad: Number(cantidad.value),
-    precio: Number(precio.value),
-    total: Number(totalSpan.innerText),
-    fecha: new Date()
-  });
+  const nombre = nombreInput.value.trim();
+  const tipo = tipoInput.value;
+  const numAcciones = Number(numAccionesInput.value);
+  const precio = Number(precioInput.value);
 
-  cargarResumen();
+  if (!nombre || numAcciones <= 0 || precio <= 0) {
+    alert("Datos inválidos");
+    return;
+  }
+
+  const total = numAcciones * precio;
+
+  try {
+    await addDoc(collection(db, "acciones"), {
+      uid: user.uid,
+      nombre,
+      tipo,
+      numAcciones,
+      precio,
+      total,
+      fecha: serverTimestamp()
+    });
+
+    nombreInput.value = "";
+    numAccionesInput.value = "";
+    precioInput.value = "";
+    totalTexto.textContent = "0.00 €";
+
+    await cargarTotalAcumulado(user.uid);
+  } catch (err) {
+    console.error("Error guardando:", err);
+    alert("Error al guardar");
+  }
 });
 
-async function cargarResumen() {
+// ===============================
+// TOTAL ACUMULADO
+// ===============================
+async function cargarTotalAcumulado(uid) {
   const q = query(
     collection(db, "acciones"),
-    where("uid", "==", usuario.uid)
+    where("uid", "==", uid)
   );
 
   const snap = await getDocs(q);
@@ -91,5 +152,5 @@ async function cargarResumen() {
     suma += doc.data().total;
   });
 
-  document.getElementById("resumen").innerText = suma.toFixed(2);
+  totalAcumuladoTexto.textContent = suma.toFixed(2) + " €";
 }
