@@ -12,14 +12,16 @@ body{background:#0f172a;color:white;font-family:Arial;padding:15px}
 input,button,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:none}
 button{background:#22c55e;color:black;font-weight:bold}
 .card{background:#020617;padding:12px;border-radius:10px;margin-bottom:15px}
-.box{border:1px solid #334155;border-radius:8px;padding:10px;margin-bottom:12px}
+.box{border:1px solid #334155;border-radius:8px;padding:10px;margin-bottom:12px;position:relative}
 hr{border:0;border-top:1px solid #334155;margin:10px 0}
 .ganancia{color:#22c55e;font-weight:bold}
 .perdida{color:#ef4444;font-weight:bold}
 .secondary{background:#38bdf8;color:black}
+.undo{background:#facc15;color:black}
 .total{font-size:18px;text-align:center;margin:10px 0}
 .range{display:flex;gap:6px}
 .range input{flex:1}
+.trash{position:absolute;top:8px;right:10px;cursor:pointer;font-size:18px;color:#ef4444}
 </style>
 </head>
 
@@ -43,7 +45,7 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
   <div id="abiertas"></div>
 </div>
 
-<!-- CERRADAS + FILTRO -->
+<!-- CERRADAS -->
 <div class="card">
   <h3>📁 Operaciones cerradas</h3>
 
@@ -55,6 +57,8 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
     <input id="desde" type="date" onchange="renderCerradas()">
     <input id="hasta" type="date" onchange="renderCerradas()">
   </div>
+
+  <button class="undo" onclick="deshacerBorrado()">↩️ Deshacer último borrado</button>
 
   <div id="totalFiltrado" class="total"></div>
   <div id="cerradas"></div>
@@ -81,18 +85,24 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 
 <script>
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
+let ultimaBorrada = null;
 
 /* ===== UTIL ===== */
 function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
 
-/* ===== COMPRA ===== */
+/* ===== GUARDAR COMPRA ===== */
 function guardarCompra(){
   const a=accion.value.trim(), c=+cantidad.value, p=+precio.value, f=fechaCompra.value;
   if(!a||!c||!p||!f){alert("Completa todos los datos");return;}
   operaciones.push({
-    id:Date.now(),accion:a,cantidad:c,
-    precioCompra:p,fechaCompra:f,
-    abierta:true,precioVenta:null,fechaVenta:null
+    id:Date.now(),
+    accion:a,
+    cantidad:c,
+    precioCompra:p,
+    fechaCompra:f,
+    abierta:true,
+    precioVenta:null,
+    fechaVenta:null
   });
   guardarEstado(); render();
 }
@@ -103,7 +113,27 @@ function cerrarOperacion(id){
   const fv=document.getElementById("fv_"+id).value;
   if(!pv||!fv){alert("Precio y fecha");return;}
   const o=operaciones.find(x=>x.id===id);
-  o.precioVenta=+pv; o.fechaVenta=fv; o.abierta=false;
+  o.precioVenta=+pv;
+  o.fechaVenta=fv;
+  o.abierta=false;
+  guardarEstado(); render();
+}
+
+/* ===== BORRAR ===== */
+function borrarOperacion(id){
+  const i=operaciones.findIndex(o=>o.id===id);
+  if(i===-1) return;
+  if(!confirm("¿Borrar esta operación cerrada?")) return;
+  ultimaBorrada=operaciones[i];
+  operaciones.splice(i,1);
+  guardarEstado(); render();
+}
+
+/* ===== DESHACER ===== */
+function deshacerBorrado(){
+  if(!ultimaBorrada){alert("Nada que deshacer");return;}
+  operaciones.push(ultimaBorrada);
+  ultimaBorrada=null;
   guardarEstado(); render();
 }
 
@@ -182,15 +212,17 @@ function renderCerradas(){
   operaciones.filter(pasaFiltro).forEach(o=>{
     const inv=o.cantidad*o.precioCompra;
     const rec=o.cantidad*o.precioVenta;
-    total+=rec-inv;
+    const res=rec-inv;
+    total+=res;
     cerradas.innerHTML+=`
       <div class="box">
+        <span class="trash" onclick="borrarOperacion(${o.id})">🗑</span>
         <strong>${o.accion}</strong><br>
         ${o.fechaCompra} → ${inv.toFixed(2)} €
         <hr>
         ${o.fechaVenta} → ${rec.toFixed(2)} €
-        <div class="${rec-inv>=0?'ganancia':'perdida'}">
-          ${(rec-inv).toFixed(2)} €
+        <div class="${res>=0?'ganancia':'perdida'}">
+          ${res.toFixed(2)} €
         </div>
       </div>`;
   });
@@ -198,11 +230,19 @@ function renderCerradas(){
 }
 
 function renderResumen(){
-  let t=0;
+  const hoy=new Date();
+  const mes=hoy.toISOString().slice(0,7);
+  const anio=hoy.getFullYear().toString();
+  let tm=0, ta=0;
   operaciones.filter(o=>!o.abierta).forEach(o=>{
-    t+=(o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
+    const r=(o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
+    if(o.fechaVenta.startsWith(mes)) tm+=r;
+    if(o.fechaVenta.startsWith(anio)) ta+=r;
   });
-  resumen.innerHTML=`TOTAL ACUMULADO: ${t.toFixed(2)} €`;
+  resumen.innerHTML=`
+    Mes actual (${mes}): <span class="${tm>=0?'ganancia':'perdida'}">${tm.toFixed(2)} €</span><hr>
+    Año ${anio}: <span class="${ta>=0?'ganancia':'perdida'}">${ta.toFixed(2)} €</span>
+  `;
 }
 
 render();
