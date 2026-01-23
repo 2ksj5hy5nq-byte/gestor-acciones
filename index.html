@@ -12,7 +12,7 @@ body {
   font-family:Arial;
   padding:15px;
 }
-input, button {
+input, button, select {
   width:100%;
   padding:10px;
   margin:6px 0;
@@ -36,7 +36,6 @@ button {
   padding:10px;
   margin-bottom:12px;
 }
-.small { opacity:.8; font-size:14px }
 hr { border:0; border-top:1px solid #334155; margin:10px 0 }
 .ganancia { color:#22c55e; font-weight:bold }
 .perdida { color:#ef4444; font-weight:bold }
@@ -66,6 +65,11 @@ hr { border:0; border-top:1px solid #334155; margin:10px 0 }
 
 <div class="card">
   <h3>📁 Operaciones cerradas</h3>
+
+  <select id="filtroMes" onchange="renderCerradas()">
+    <option value="">— Todas —</option>
+  </select>
+
   <div id="cerradas"></div>
 </div>
 
@@ -81,7 +85,7 @@ function guardarEstado() {
   localStorage.setItem("ops", JSON.stringify(operaciones));
 }
 
-/* ===== GUARDAR COMPRA (BASE FUNCIONAL) ===== */
+/* ===== GUARDAR COMPRA (NO TOCAR) ===== */
 function guardarCompra() {
   const accion = document.getElementById("accion").value.trim();
   const cantidad = Number(document.getElementById("cantidad").value);
@@ -129,9 +133,10 @@ function cerrarOperacion(id) {
   render();
 }
 
-/* ===== RENDER ===== */
+/* ===== RENDER GENERAL ===== */
 function render() {
   renderAbiertas();
+  renderFiltroMes();
   renderCerradas();
   renderResumen();
 }
@@ -164,38 +169,56 @@ function renderAbiertas() {
   });
 }
 
-/* ===== CERRADAS ===== */
+/* ===== FILTRO MES ===== */
+function renderFiltroMes() {
+  const select = document.getElementById("filtroMes");
+  const meses = [...new Set(
+    operaciones
+      .filter(o => !o.abierta)
+      .map(o => o.fechaVenta.slice(0,7))
+  )];
+
+  select.innerHTML = `<option value="">— Todas —</option>`;
+  meses.sort().forEach(m => {
+    select.innerHTML += `<option value="${m}">${m}</option>`;
+  });
+}
+
+/* ===== CERRADAS (FILTRADAS) ===== */
 function renderCerradas() {
   const cont = document.getElementById("cerradas");
+  const mes = document.getElementById("filtroMes").value;
   cont.innerHTML = "";
 
-  operaciones.filter(o => !o.abierta).forEach(o => {
-    const inv = o.cantidad * o.precioCompra;
-    const rec = o.cantidad * o.precioVenta;
-    const res = rec - inv;
+  operaciones
+    .filter(o => !o.abierta && (!mes || o.fechaVenta.startsWith(mes)))
+    .forEach(o => {
+      const inv = o.cantidad * o.precioCompra;
+      const rec = o.cantidad * o.precioVenta;
+      const res = rec - inv;
 
-    cont.innerHTML += `
-      <div class="box">
-        <div class="titulo">${o.accion}</div>
+      cont.innerHTML += `
+        <div class="box">
+          <div class="titulo">${o.accion}</div>
 
-        COMPRA<br>
-        ${o.fechaCompra}<br>
-        ${o.cantidad} × ${o.precioCompra} € → ${inv.toFixed(2)} €
+          COMPRA<br>
+          ${o.fechaCompra}<br>
+          ${o.cantidad} × ${o.precioCompra} € → ${inv.toFixed(2)} €
 
-        <hr>
+          <hr>
 
-        VENTA<br>
-        ${o.fechaVenta}<br>
-        ${o.cantidad} × ${o.precioVenta} € → ${rec.toFixed(2)} €
+          VENTA<br>
+          ${o.fechaVenta}<br>
+          ${o.cantidad} × ${o.precioVenta} € → ${rec.toFixed(2)} €
 
-        <hr>
+          <hr>
 
-        <div class="${res >= 0 ? 'ganancia' : 'perdida'}">
-          RESULTADO: ${res.toFixed(2)} €
+          <div class="${res >= 0 ? 'ganancia' : 'perdida'}">
+            RESULTADO: ${res.toFixed(2)} €
+          </div>
         </div>
-      </div>
-    `;
-  });
+      `;
+    });
 }
 
 /* ===== RESUMEN ===== */
