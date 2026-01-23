@@ -12,7 +12,7 @@ body {
   font-family:Arial;
   padding:15px;
 }
-input, button {
+input, button, select {
   width:100%;
   padding:10px;
   margin:6px 0;
@@ -60,6 +60,16 @@ button {
 </div>
 
 <div class="card">
+  <h3>📁 Operaciones cerradas</h3>
+
+  <select id="filtroMes" onchange="renderCerradas()">
+    <option value="">— Filtrar por mes —</option>
+  </select>
+
+  <div id="cerradas"></div>
+</div>
+
+<div class="card">
   <h3>📊 Resumen</h3>
   <div id="resumen"></div>
 </div>
@@ -83,14 +93,15 @@ function guardarCompra() {
   }
 
   operaciones.push({
-    id: crypto.randomUUID(),
+    id: Date.now(), // NO tocamos nada más
     accion,
     cantidad,
     precioCompra: precio,
     fechaCompra,
     abierta: true,
     precioVenta: null,
-    fechaVenta: null
+    fechaVenta: null,
+    mesCierre: null
   });
 
   guardarEstado();
@@ -109,6 +120,7 @@ function cerrarOperacion(id) {
   op.precioVenta = Number(precioVenta);
   op.fechaVenta = fechaVenta;
   op.abierta = false;
+  op.mesCierre = fechaVenta.slice(0,7); // YYYY-MM
 
   guardarEstado();
   render();
@@ -117,6 +129,8 @@ function cerrarOperacion(id) {
 function render() {
   renderAbiertas();
   renderResumen();
+  renderFiltroMeses();
+  renderCerradas();
 }
 
 function renderAbiertas() {
@@ -131,11 +145,44 @@ function renderAbiertas() {
           <span class="small">${o.cantidad} × ${o.precioCompra} €</span><br>
           <span class="small">Compra: ${o.fechaCompra}</span>
         </div>
-        <button onclick="cerrarOperacion('${o.id}')">Cerrar</button>
+        <button onclick="cerrarOperacion(${o.id})">Cerrar</button>
       </div>
       <hr>
     `;
   });
+}
+
+function renderFiltroMeses() {
+  const select = document.getElementById("filtroMes");
+  const meses = [...new Set(
+    operaciones
+      .filter(o => !o.abierta && o.mesCierre)
+      .map(o => o.mesCierre)
+  )];
+
+  select.innerHTML = `<option value="">— Filtrar por mes —</option>`;
+  meses.sort().forEach(m => {
+    select.innerHTML += `<option value="${m}">${m}</option>`;
+  });
+}
+
+function renderCerradas() {
+  const cont = document.getElementById("cerradas");
+  const mes = document.getElementById("filtroMes").value;
+  cont.innerHTML = "";
+
+  operaciones
+    .filter(o => !o.abierta && (!mes || o.mesCierre === mes))
+    .forEach(o => {
+      const resultado = (o.precioVenta - o.precioCompra) * o.cantidad;
+      cont.innerHTML += `
+        <div>
+          <strong>${o.accion}</strong><br>
+          ${o.fechaVenta} — Resultado: ${resultado.toFixed(2)} €
+        </div>
+        <hr>
+      `;
+    });
 }
 
 function renderResumen() {
