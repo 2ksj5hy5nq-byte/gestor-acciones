@@ -1,52 +1,70 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Gestor de Acciones</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
-    input, select, button { display: block; margin: 6px 0; }
+    h1 { margin-bottom: 10px; }
+    input, select, button { margin: 5px 0; }
+    ul { margin-left: 20px; }
   </style>
 </head>
 <body>
 
 <h1>Gestor de Acciones</h1>
 
-<button id="loginGoogle">Iniciar sesión con Google</button>
+<button id="loginBtn">Iniciar sesión con Google</button>
 
 <h3>Usuario</h3>
 <div id="usuario"></div>
 
 <h3>Nueva acción</h3>
-<input id="nombre" placeholder="Nombre de la acción">
+<input id="nombre" placeholder="Nombre de la acción" />
+<br>
 <select id="tipo">
   <option value="Compra">Compra</option>
   <option value="Venta">Venta</option>
 </select>
-<input id="importe" type="number" placeholder="Importe €">
+<br>
+<input id="importe" type="number" placeholder="Importe €" />
+<br>
 <button id="guardar">Guardar acción</button>
 
 <h3>Mis acciones</h3>
-<ul id="lista"></ul>
+<div id="listaAcciones"></div>
 
 <h3>Resumen</h3>
-<div id="resumen">Resultado total: 0 €</div>
+<div id="resultado">Resultado total: 0 €</div>
 
 <script type="module">
+  // 🔥 Firebase SDK
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } 
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getFirestore, collection, addDoc, query, where, orderBy, getDocs } 
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    query,
+    where,
+    orderBy,
+    getDocs,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  // ✅ CONFIGURACIÓN CORRECTA (TU PROYECTO REAL)
+  // ⚠️ CONFIGURACIÓN FIREBASE (TU PROYECTO)
   const firebaseConfig = {
-    apiKey: "AIzaSyD3XGLrrvUTNHHqk8P0gU8ROeyKBApig7o",
+    apiKey: "PEGA_AQUI_TU_BROWSER_KEY",
     authDomain: "gestor-acciones.firebaseapp.com",
     projectId: "gestor-acciones",
     storageBucket: "gestor-acciones.appspot.com",
     messagingSenderId: "682376422747",
-    appId: "1:682376422747:web:ec250f93ad6219eb2ce67e"
+    appId: "1:682376422747:web:XXXX"
   };
 
   const app = initializeApp(firebaseConfig);
@@ -54,56 +72,74 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  let user = null;
+  const loginBtn = document.getElementById("loginBtn");
+  const usuarioDiv = document.getElementById("usuario");
+  const guardarBtn = document.getElementById("guardar");
 
-  document.getElementById("loginGoogle").onclick = async () => {
+  let usuario = null;
+
+  loginBtn.onclick = async () => {
     await signInWithPopup(auth, provider);
   };
 
-  onAuthStateChanged(auth, u => {
-    user = u;
-    if (u) {
-      document.getElementById("usuario").textContent = u.email;
-      cargarAcciones();
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      usuario = user;
+      usuarioDiv.textContent = user.email;
+      await cargarAcciones();
     }
   });
 
-  document.getElementById("guardar").onclick = async () => {
-    if (!user) return alert("Inicia sesión primero");
+  guardarBtn.onclick = async () => {
+    if (!usuario) return alert("Inicia sesión");
+
+    const nombre = document.getElementById("nombre").value.trim();
+    const tipo = document.getElementById("tipo").value;
+    const importe = Number(document.getElementById("importe").value);
+
+    if (!nombre || !importe) return alert("Faltan datos");
 
     await addDoc(collection(db, "acciones"), {
-      uid: user.uid,
-      nombre: document.getElementById("nombre").value,
-      tipo: document.getElementById("tipo").value,
-      importe: Number(document.getElementById("importe").value),
-      fecha: new Date()
+      uid: usuario.uid,
+      nombre,
+      tipo,
+      importe,
+      fecha: serverTimestamp()
     });
 
-    cargarAcciones();
+    document.getElementById("nombre").value = "";
+    document.getElementById("importe").value = "";
+
+    await cargarAcciones();
   };
 
   async function cargarAcciones() {
+    const contenedor = document.getElementById("listaAcciones");
+    contenedor.innerHTML = "";
+
     const q = query(
       collection(db, "acciones"),
-      where("uid", "==", user.uid),
+      where("uid", "==", usuario.uid),
       orderBy("fecha", "desc")
     );
 
-    const snap = await getDocs(q);
-    const lista = document.getElementById("lista");
-    lista.innerHTML = "";
+    const snapshot = await getDocs(q);
 
     let total = 0;
 
-    snap.forEach(doc => {
+    snapshot.forEach(doc => {
       const a = doc.data();
-      const li = document.createElement("li");
-      li.textContent = `${a.nombre} | ${a.tipo} | ${a.importe} €`;
-      lista.appendChild(li);
-      total += a.tipo === "Compra" ? -a.importe : a.importe;
+      const fecha = a.fecha?.toDate().toLocaleDateString("es-ES") ?? "—";
+
+      const div = document.createElement("div");
+      div.textContent = `${fecha} · ${a.nombre} · ${a.tipo} · ${a.importe} €`;
+
+      contenedor.appendChild(div);
+
+      total += a.tipo === "Venta" ? a.importe : -a.importe;
     });
 
-    document.getElementById("resumen").textContent =
+    document.getElementById("resultado").textContent =
       `Resultado total: ${total.toFixed(2)} €`;
   }
 </script>
