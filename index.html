@@ -4,8 +4,19 @@
   <meta charset="UTF-8">
   <title>Gestor de Acciones</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    input, select, button { display: block; margin: 6px 0; width: 260px; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 600px;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 8px;
+      margin: 6px 0;
+    }
+    button {
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -30,7 +41,7 @@
 <button id="guardar">Guardar acción</button>
 
 <h2>Resumen</h2>
-<p>Total acumulado: <span id="resumen">0.00</span> €</p>
+<p>Total acumulado: <strong><span id="resumen">0.00</span> €</strong></p>
 
 <script type="module" src="app.js"></script>
 </body>
