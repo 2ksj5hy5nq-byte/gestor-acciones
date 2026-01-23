@@ -6,16 +6,39 @@
 <title>Gestor de Acciones</title>
 
 <style>
-body{background:#0f172a;color:white;font-family:Arial;padding:15px}
-input,button,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:none}
-button{background:#22c55e;color:black;font-weight:bold}
-.card{background:#020617;padding:12px;border-radius:10px;margin-bottom:15px}
-.box{border:1px solid #334155;border-radius:8px;padding:10px;margin-bottom:12px}
-hr{border:0;border-top:1px solid #334155;margin:10px 0}
-.ganancia{color:#22c55e;font-weight:bold}
-.perdida{color:#ef4444;font-weight:bold}
-.total{text-align:center;font-size:18px;margin:10px 0}
-.small{opacity:.85;font-size:14px}
+body {
+  background:#0f172a;
+  color:white;
+  font-family:Arial;
+  padding:15px;
+}
+input, button, select {
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+  border-radius:8px;
+  border:none;
+}
+button {
+  background:#22c55e;
+  font-weight:bold;
+}
+.card {
+  background:#020617;
+  padding:12px;
+  border-radius:10px;
+  margin-bottom:15px;
+}
+.row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.small { opacity:.8; font-size:14px }
+hr { opacity:.2 }
+.green { color:#22c55e }
+.red { color:#ef4444 }
+.icon { cursor:pointer; margin-left:10px }
 </style>
 </head>
 
@@ -24,157 +47,212 @@ hr{border:0;border-top:1px solid #334155;margin:10px 0}
 <h2>📈 Gestor de Acciones</h2>
 
 <div class="card">
-<h3>Nueva compra</h3>
-<input id="accion" placeholder="Nombre">
-<input id="cantidad" type="number" placeholder="Cantidad">
-<input id="precio" type="number" step="0.01" placeholder="Precio compra">
-<input id="fechaCompra" type="date">
-<button onclick="guardarCompra()">Guardar compra</button>
+  <h3>Nueva compra</h3>
+  <input id="accion" placeholder="Acción">
+  <input id="cantidad" type="number" placeholder="Cantidad">
+  <input id="precio" type="number" step="0.01" placeholder="Precio compra">
+  <input id="fechaCompra" type="date">
+  <button onclick="guardarCompra()">Guardar compra</button>
 </div>
 
 <div class="card">
-<h3>📂 Operaciones abiertas</h3>
-<div id="abiertas"></div>
+  <h3>📂 Operaciones abiertas</h3>
+  <div id="abiertas"></div>
 </div>
 
 <div class="card">
-<h3>📁 Operaciones cerradas</h3>
-<select id="filtroMes" onchange="renderCerradas()">
-<option value="">— Todos los meses —</option>
-</select>
-<div class="total" id="totalFiltrado"></div>
-<div id="cerradas"></div>
+  <h3>📁 Operaciones cerradas</h3>
+
+  <select id="filtroMes" onchange="render()">
+    <option value="">Todos los meses</option>
+  </select>
+
+  <div id="totalMes"></div>
+  <div id="cerradas"></div>
+
+  <button onclick="deshacer()">↩️ Deshacer último borrado</button>
+  <button onclick="exportarCSV()">📤 Exportar Excel (CSV)</button>
+  <button onclick="backup()">💾 Backup</button>
+  <input type="file" onchange="restaurar(this)">
 </div>
 
 <div class="card">
-<h3>📊 Resumen</h3>
-<div id="resumen"></div>
+  <h3>📊 Resumen</h3>
+  <div id="resumen"></div>
 </div>
 
 <script>
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
+let papelera = null;
 
-function guardarEstado(){
-  localStorage.setItem("ops",JSON.stringify(operaciones));
+function guardarEstado() {
+  localStorage.setItem("ops", JSON.stringify(operaciones));
 }
 
-function guardarCompra(){
-  const a=accion.value.trim();
-  const c=Number(cantidad.value);
-  const p=Number(precio.value);
-  const f=fechaCompra.value;
-  if(!a||!c||!p||!f){alert("Completa todos los datos");return;}
+function guardarCompra() {
+  const accion = accionEl.value.trim();
+  const cantidad = Number(cantidadEl.value);
+  const precio = Number(precioEl.value);
+  const fechaCompra = fechaCompraEl.value;
+
+  if (!accion || !cantidad || !precio || !fechaCompra) {
+    alert("Completa todos los datos");
+    return;
+  }
+
   operaciones.push({
-    id:Date.now(),
-    accion:a,
-    cantidad:c,
-    precioCompra:p,
-    fechaCompra:f,
-    abierta:true
+    id: crypto.randomUUID(),
+    accion,
+    cantidad,
+    precioCompra: precio,
+    fechaCompra,
+    abierta: true,
+    precioVenta: null,
+    fechaVenta: null
   });
-  guardarEstado();render();
+
+  guardarEstado();
+  render();
 }
 
-function cerrarOperacion(id){
-  const pv=Number(prompt("Precio venta"));
-  const fv=prompt("Fecha venta (YYYY-MM-DD)");
-  if(!pv||!fv)return;
-  const o=operaciones.find(x=>x.id===id);
-  o.precioVenta=pv;
-  o.fechaVenta=fv;
-  o.abierta=false;
-  guardarEstado();render();
+function cerrarOperacion(id) {
+  const precioVenta = Number(prompt("Precio de venta"));
+  const fechaVenta = prompt("Fecha de venta (YYYY-MM-DD)");
+  if (!precioVenta || !fechaVenta) return;
+
+  const op = operaciones.find(o => o.id === id);
+  op.precioVenta = precioVenta;
+  op.fechaVenta = fechaVenta;
+  op.abierta = false;
+
+  guardarEstado();
+  render();
 }
 
-function operacionValida(o){
-  return o && !o.abierta &&
-    typeof o.cantidad==="number" &&
-    typeof o.precioCompra==="number" &&
-    typeof o.precioVenta==="number" &&
-    o.fechaCompra && o.fechaVenta;
+function borrar(id) {
+  papelera = operaciones.find(o => o.id === id);
+  operaciones = operaciones.filter(o => o.id !== id);
+  guardarEstado();
+  render();
 }
 
-function render(){
+function deshacer() {
+  if (!papelera) return;
+  operaciones.push(papelera);
+  papelera = null;
+  guardarEstado();
+  render();
+}
+
+function render() {
   renderAbiertas();
-  renderFiltroMes();
   renderCerradas();
   renderResumen();
+  renderFiltroMes();
 }
 
-function renderAbiertas(){
-  abiertas.innerHTML="";
-  operaciones.filter(o=>o.abierta).forEach(o=>{
-    const inv=o.cantidad*o.precioCompra;
-    abiertas.innerHTML+=`
-    <div class="box">
-      <strong>${o.accion}</strong><br>
-      <span class="small">${o.fechaCompra}</span><br>
-      <span class="small">${o.cantidad} × ${o.precioCompra} € = ${inv.toFixed(2)} €</span>
-      <hr>
-      <button onclick="cerrarOperacion(${o.id})">Cerrar</button>
-    </div>`;
+function renderAbiertas() {
+  abiertas.innerHTML = "";
+  operaciones.filter(o => o.abierta).forEach(o => {
+    abiertas.innerHTML += `
+      <div class="row">
+        <div>
+          <strong>${o.accion}</strong><br>
+          ${o.fechaCompra}<br>
+          ${o.cantidad} × ${o.precioCompra} € = ${(o.cantidad * o.precioCompra).toFixed(2)} €
+        </div>
+        <button onclick="cerrarOperacion('${o.id}')">Cerrar</button>
+      </div><hr>`;
   });
 }
 
-function renderFiltroMes(){
-  const meses=[...new Set(
-    operaciones.filter(operacionValida)
-      .map(o=>o.fechaVenta.slice(0,7))
+function renderCerradas() {
+  cerradas.innerHTML = "";
+  let total = 0;
+  const mes = filtroMes.value;
+
+  operaciones.filter(o => !o.abierta).forEach(o => {
+    if (mes && !o.fechaVenta.startsWith(mes)) return;
+
+    const compra = o.cantidad * o.precioCompra;
+    const venta = o.cantidad * o.precioVenta;
+    const resultado = venta - compra;
+    total += resultado;
+
+    cerradas.innerHTML += `
+      <div>
+        <strong>${o.accion}</strong><br>
+        ${o.fechaCompra}<br>
+        ${o.cantidad} × ${o.precioCompra} € = ${compra.toFixed(2)} €<br><br>
+        ${o.fechaVenta}<br>
+        ${o.cantidad} × ${o.precioVenta} € = ${venta.toFixed(2)} €<br>
+        <strong class="${resultado>=0?'green':'red'}">
+          ${resultado>=0?'+':''}${resultado.toFixed(2)} €
+        </strong>
+        <span class="icon" onclick="borrar('${o.id}')">🗑</span>
+        <hr>
+      </div>`;
+  });
+
+  totalMes.innerHTML = `<strong>TOTAL MES: ${total.toFixed(2)} €</strong>`;
+}
+
+function renderResumen() {
+  let inv = 0, rec = 0;
+  operaciones.forEach(o => {
+    inv += o.cantidad * o.precioCompra;
+    if (!o.abierta) rec += o.cantidad * o.precioVenta;
+  });
+  resumen.innerHTML = `
+    Capital invertido: ${inv.toFixed(2)} €<br>
+    Capital recuperado: ${rec.toFixed(2)} €<br>
+    Resultado total: ${(rec - inv).toFixed(2)} €
+  `;
+}
+
+function renderFiltroMes() {
+  const meses = [...new Set(
+    operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,7))
   )];
-  filtroMes.innerHTML='<option value="">— Todos los meses —</option>';
+  filtroMes.innerHTML = `<option value="">Todos los meses</option>`;
   meses.forEach(m=>filtroMes.innerHTML+=`<option>${m}</option>`);
 }
 
-function renderCerradas(){
-  cerradas.innerHTML="";
-  let total=0;
-  operaciones.filter(operacionValida)
-    .filter(o=>!filtroMes.value || o.fechaVenta.startsWith(filtroMes.value))
-    .forEach(o=>{
-      const inv=o.cantidad*o.precioCompra;
-      const rec=o.cantidad*o.precioVenta;
-      const res=rec-inv;
-      total+=res;
-      cerradas.innerHTML+=`
-      <div class="box">
-        <strong>${o.accion}</strong><br><br>
-
-        <div class="small">
-          ${o.fechaCompra}<br>
-          ${o.cantidad} × ${o.precioCompra} € = ${inv.toFixed(2)} €
-        </div>
-
-        <hr>
-
-        <div class="small">
-          ${o.fechaVenta}<br>
-          ${o.cantidad} × ${o.precioVenta} € = ${rec.toFixed(2)} €
-        </div>
-
-        <hr>
-
-        <div class="${res>=0?'ganancia':'perdida'}">
-          ${res>=0?'+':''}${res.toFixed(2)} €
-        </div>
-      </div>`;
-    });
-  totalFiltrado.innerHTML=`TOTAL MES: ${total.toFixed(2)} €`;
-}
-
-function renderResumen(){
-  let inv=0,rec=0;
-  operaciones.forEach(o=>{
-    inv+=o.cantidad*o.precioCompra;
-    if(!o.abierta && operacionValida(o)){
-      rec+=o.cantidad*o.precioVenta;
-    }
+function exportarCSV() {
+  let csv = "Acción,Fecha compra,Cantidad,Precio compra,Fecha venta,Precio venta\n";
+  operaciones.filter(o=>!o.abierta).forEach(o=>{
+    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${o.fechaVenta},${o.precioVenta}\n`;
   });
-  resumen.innerHTML=`
-    Capital invertido: ${inv.toFixed(2)} €<br>
-    Capital recuperado: ${rec.toFixed(2)} €<br>
-    Resultado total: ${(rec-inv).toFixed(2)} €
-  `;
+  const blob = new Blob([csv],{type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "operaciones.csv";
+  a.click();
 }
+
+function backup() {
+  const blob = new Blob([JSON.stringify(operaciones)],{type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "backup.json";
+  a.click();
+}
+
+function restaurar(input) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    operaciones = JSON.parse(e.target.result);
+    guardarEstado();
+    render();
+  };
+  reader.readAsText(input.files[0]);
+}
+
+// Shortcuts
+const accionEl = accion;
+const cantidadEl = cantidad;
+const precioEl = precio;
+const fechaCompraEl = fechaCompra;
 
 render();
 </script>
