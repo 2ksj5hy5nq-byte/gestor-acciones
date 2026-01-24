@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
@@ -64,8 +63,7 @@ button{border:none;font-weight:600;cursor:pointer}
 <h3 class="section-title"><i class="fa-solid fa-folder-closed"></i> Operaciones cerradas</h3>
 
 <button class="btn-secondary">
-  <i class="fa-solid fa-file-import"></i>
-  Importar CSV DEGIRO
+  <i class="fa-solid fa-file-import"></i> Importar CSV (DEGIRO)
   <input type="file" accept=".csv" style="display:none" onchange="importarCSV(this)">
 </button>
 
@@ -89,34 +87,52 @@ function guardarEstado(){
   localStorage.setItem("ops",JSON.stringify(operaciones));
 }
 
-/* =======================
+/* =========================
    IMPORTAR CSV DEGIRO
-======================= */
+========================= */
 function importarCSV(input){
   const file=input.files[0];
   if(!file) return;
 
   const reader=new FileReader();
   reader.onload=e=>{
-    const lineas=e.target.result.split("\n").slice(1);
+    const filas=e.target.result.split("\n").slice(1);
+    const compras={};
 
-    let movimientos=[];
-
-    lineas.forEach(l=>{
-      const c=l.split(",");
-      if(c.length<15) return;
+    filas.forEach(f=>{
+      const c=f.split(",");
+      if(c.length<8) return;
 
       const fecha=c[0].split("-").reverse().join("-");
       const accion=c[2];
-      const cantidad=Math.abs(Number(c[6]));
+      const num=Math.abs(Number(c[6]));
       const precio=parseFloat(c[7].replace('"','').replace(",","."));
-      const total=parseFloat(c[14].replace('"','').replace(",","."));
       const tipo=Number(c[6])>0?"COMPRA":"VENTA";
 
-      movimientos.push({accion,fecha,cantidad,precio,total,tipo});
+      if(tipo==="COMPRA"){
+        if(!compras[accion]) compras[accion]=[];
+        compras[accion].push({fecha,accion,num,precio,restante:num});
+      }else{
+        let pendiente=num;
+        (compras[accion]||[]).forEach(co=>{
+          if(pendiente<=0) return;
+          const usar=Math.min(co.restante,pendiente);
+          operaciones.push({
+            id:crypto.randomUUID(),
+            accion,
+            cantidad:usar,
+            precioCompra:co.precio,
+            fechaCompra:co.fecha,
+            precioVenta:precio,
+            fechaVenta:fecha,
+            abierta:false
+          });
+          co.restante-=usar;
+          pendiente-=usar;
+        });
+      }
     });
 
-    aplicarFIFO(movimientos);
     guardarEstado();
     render();
     alert("CSV importado correctamente");
@@ -124,45 +140,9 @@ function importarCSV(input){
   reader.readAsText(file);
 }
 
-/* =======================
-   FIFO FISCAL AUTOMÁTICO
-======================= */
-function aplicarFIFO(movs){
-  const compras={};
-
-  movs.forEach(m=>{
-    if(m.tipo==="COMPRA"){
-      if(!compras[m.accion]) compras[m.accion]=[];
-      compras[m.accion].push({...m,restante:m.cantidad});
-    }else{
-      let pendiente=m.cantidad;
-      const lista=compras[m.accion]||[];
-
-      for(const c of lista){
-        if(pendiente<=0) break;
-        const usar=Math.min(c.restante,pendiente);
-
-        operaciones.push({
-          id:crypto.randomUUID(),
-          accion:m.accion,
-          cantidad:usar,
-          precioCompra:c.precio,
-          fechaCompra:c.fecha,
-          precioVenta:m.precio,
-          fechaVenta:m.fecha,
-          abierta:false
-        });
-
-        c.restante-=usar;
-        pendiente-=usar;
-      }
-    }
-  });
-}
-
-/* =======================
+/* =========================
    RENDER
-======================= */
+========================= */
 function render(){
   renderAbiertas();
   renderCerradas();
