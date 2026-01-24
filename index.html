@@ -124,6 +124,15 @@ function guardarCompra(){
   guardarEstado();render();
 }
 
+function normalizarNumero(valor){
+  return parseFloat(
+    valor
+      .replace(/"/g,"")
+      .replace(/\./g,"")
+      .replace(",",".")
+  );
+}
+
 function importarCSV(input){
   const file=input.files[0]; if(!file)return;
   const r=new FileReader();
@@ -137,10 +146,9 @@ function importarCSV(input){
       const accion=c[2]?.trim();
       const fecha=c[0]?.split("-").reverse().join("-");
       const cantidad=Math.abs(parseInt(c[6]));
-      const precio=parseFloat(
-        c[7].replace(/"/g,"").replace(".","").replace(",",".")
-      );
-      if(!accion||!cantidad||!precio)return;
+      const precio=normalizarNumero(c[7]);
+
+      if(!accion||!cantidad||isNaN(precio))return;
 
       const obj={accion,cantidad,precio,fecha};
       if(c[6].startsWith("-")) (ventas[accion]=ventas[accion]||[]).push(obj);
@@ -210,7 +218,7 @@ function renderAbiertas(){
     <div class="box">
       <b>${o.accion}</b><br>
       ${o.fechaCompra}<br>
-      <span class="money">${o.cantidad} x ${o.precioCompra} = ${(o.cantidad*o.precioCompra).toFixed(2)} €</span>
+      <span class="money">${o.cantidad} x ${o.precioCompra.toFixed(4)} = ${(o.cantidad*o.precioCompra).toFixed(2)} €</span>
     </div>`;
   });
 }
@@ -227,8 +235,8 @@ function renderCerradas(){
     cerradas.innerHTML+=`
     <div class="box">
       <b>${o.accion}</b><br>
-      Compra ${o.fechaCompra} — ${o.cantidad} x ${o.precioCompra}<br>
-      Venta ${o.fechaVenta} — ${o.cantidad} x ${o.precioVenta}<br>
+      Compra ${o.fechaCompra} — ${o.cantidad} x ${o.precioCompra.toFixed(4)}<br>
+      Venta ${o.fechaVenta} — ${o.cantidad} x ${o.precioVenta.toFixed(4)}<br>
       <div class="${r>=0?'green':'red'}">${r.toFixed(2)} €</div>
       <i class="fa-solid fa-pen icon" onclick="editar('${o.id}')"></i>
       <i class="fa-solid fa-trash icon" onclick="borrar('${o.id}')"></i>
@@ -259,7 +267,7 @@ function renderDashboard(){
 function exportarCSV(){
   let csv="Acción,Fecha compra,Cantidad,Precio compra,Fecha venta,Precio venta,Resultado\n";
   operaciones.filter(o=>!o.abierta).forEach(o=>{
-    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${o.fechaVenta},${o.precioVenta},${(o.cantidad*(o.precioVenta-o.precioCompra)).toFixed(2)}\n`;
+    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra.toFixed(4)},${o.fechaVenta},${o.precioVenta.toFixed(4)},${(o.cantidad*(o.precioVenta-o.precioCompra)).toFixed(2)}\n`;
   });
   const b=new Blob([csv]);const a=document.createElement("a");
   a.href=URL.createObjectURL(b);a.download="operaciones.csv";a.click();
