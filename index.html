@@ -14,12 +14,12 @@
 :root{
   --bg:#0b1220;--card:#111827;--border:#1f2937;
   --text:#e5e7eb;--muted:#9ca3af;
-  --green:#22c55e;--red:#ef4444;
+  --green:#22c55e;--red:#ef4444;--accent:#3b82f6;
 }
 body{
   background:linear-gradient(180deg,#0b1220,#020617);
   color:var(--text);
-  font-family:Inter,Arial;
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;
   padding:16px;
 }
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px}
@@ -32,7 +32,7 @@ input,button,select{
   width:100%;padding:11px;margin:6px 0;border-radius:12px;
   border:1px solid var(--border);background:#020617;color:var(--text)
 }
-button{font-weight:600;cursor:pointer}
+button{font-weight:600}
 .dashboard{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 </style>
 </head>
@@ -88,20 +88,7 @@ let papelera=null;
 
 function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
 
-/* CORRECCIÓN DEFINITIVA DECIMALES CSV EUROPEOS */
-function parsePrecioEU(valor){
-  if(!valor) return 0;
-  let v = valor.replace(/"/g,"").trim();
-  if(v.includes(",") && v.includes(".")){
-    v = v.replace(/\./g,"").replace(",",".");
-  }else if(v.includes(",")){
-    v = v.replace(",",".");
-  }
-  return Number(v);
-}
-
 function guardarCompra(){
-  if(!accion.value||!cantidad.value||!precio.value||!fechaCompra.value)return;
   operaciones.push({
     id:crypto.randomUUID(),
     accion:accion.value.trim(),
@@ -114,24 +101,46 @@ function guardarCompra(){
   guardarEstado();render();
 }
 
+function parseCSV(text){
+  const rows=[];
+  let row=[],cur="",inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i],n=text[i+1];
+    if(c=='"'&&inQ&&n=='"'){cur+='"';i++;}
+    else if(c=='"'){inQ=!inQ;}
+    else if(!inQ&&(c==';'||c==',')){row.push(cur);cur="";}
+    else if(!inQ&&(c=='\n'||c=='\r')){
+      if(cur||row.length){row.push(cur);rows.push(row);}
+      row=[];cur="";
+    }else cur+=c;
+  }
+  if(cur||row.length){row.push(cur);rows.push(row);}
+  return rows;
+}
+
+function parsePrecioEU(v){
+  if(!v)return 0;
+  return Number(v.replace(/\s/g,"").replace(/\./g,"").replace(",","."));
+}
+
 function importarCSV(input){
   const r=new FileReader();
   r.onload=e=>{
-    const filas=e.target.result.split(/\r?\n/).slice(1);
+    const filas=parseCSV(e.target.result);
+    filas.shift();
+
     const compras={},ventas={};
 
-    filas.forEach(f=>{
-      if(!f.trim())return;
-      const c=f.split(",");
-      const accion=c[2]?.trim();
+    filas.forEach(c=>{
       const fecha=c[0]?.split("-").reverse().join("-");
-      const num=parseInt(c[6]);
-      const cantidad=Math.abs(num);
-      const precio=parsePrecioEU(c[7]);
+      const accion=c[2]?.trim();
+      const num=parseInt(c[5]||c[6]);
+      const precio=parsePrecioEU(c[6]||c[7]);
 
-      if(!accion||!cantidad||!precio)return;
+      if(!accion||!num||!precio)return;
 
-      const obj={cantidad,precio,fecha};
+      const obj={cantidad:Math.abs(num),precio,fecha};
+
       if(num<0)(ventas[accion]=ventas[accion]||[]).push(obj);
       else (compras[accion]=compras[accion]||[]).push(obj);
     });
@@ -169,56 +178,8 @@ function importarCSV(input){
   r.readAsText(input.files[0]);
 }
 
-function editarOperacion(id){
-  const o=operaciones.find(x=>x.id===id);
-  const nc=parseFloat(prompt("Cantidad",o.cantidad));
-  const pc=parseFloat(prompt("Precio compra",o.precioCompra));
-  const fc=prompt("Fecha compra",o.fechaCompra);
-  if(!nc||!pc||!fc)return;
-
-  o.cantidad=nc;
-  o.precioCompra=pc;
-  o.fechaCompra=fc;
-
-  if(!o.abierta){
-    const pv=parseFloat(prompt("Precio venta",o.precioVenta));
-    const fv=prompt("Fecha venta",o.fechaVenta);
-    if(!pv||!fv)return;
-    o.precioVenta=pv;
-    o.fechaVenta=fv;
-  }
-  guardarEstado();render();
-}
-
-function cerrarOperacion(id){
-  const o=operaciones.find(x=>x.id===id);
-  const pv=parseFloat(prompt("Precio venta"));
-  const fv=prompt("Fecha venta");
-  if(!pv||!fv)return;
-  o.precioVenta=pv;
-  o.fechaVenta=fv;
-  o.abierta=false;
-  guardarEstado();render();
-}
-
-function borrar(id){
-  papelera=operaciones.find(o=>o.id===id);
-  operaciones=operaciones.filter(o=>o.id!==id);
-  guardarEstado();render();
-}
-
-function deshacer(){
-  if(!papelera)return;
-  operaciones.push(papelera);
-  papelera=null;
-  guardarEstado();render();
-}
-
 function render(){
-  renderAbiertas();
-  renderCerradas();
-  renderResumen();
-  renderFiltroMes();
+  renderAbiertas();renderCerradas();renderResumen();renderFiltroMes();
 }
 
 function renderAbiertas(){
@@ -227,11 +188,8 @@ function renderAbiertas(){
     abiertas.innerHTML+=`
     <div class="box">
       <b>${o.accion}</b><br>
-      Compra ${o.fechaCompra}<br>
-      ${o.cantidad} × ${o.precioCompra}
-      <i class="fa-solid fa-check icon" onclick="cerrarOperacion('${o.id}')"></i>
-      <i class="fa-solid fa-pen icon" onclick="editarOperacion('${o.id}')"></i>
-      <i class="fa-solid fa-trash icon" onclick="borrar('${o.id}')"></i>
+      ${o.fechaCompra}<br>
+      ${o.cantidad} × ${o.precioCompra.toFixed(4)}
     </div>`;
   });
 }
@@ -239,18 +197,15 @@ function renderAbiertas(){
 function renderCerradas(){
   cerradas.innerHTML="";let total=0;
   operaciones.filter(o=>!o.abierta).forEach(o=>{
-    if(filtroMes.value && !o.fechaVenta.startsWith(filtroMes.value))return;
-    if(desde.value && o.fechaVenta<desde.value)return;
-    if(hasta.value && o.fechaVenta>hasta.value)return;
     const r=o.cantidad*(o.precioVenta-o.precioCompra);
     total+=r;
     cerradas.innerHTML+=`
     <div class="box">
       <b>${o.accion}</b><br>
-      Compra ${o.fechaCompra} — ${o.cantidad} × ${o.precioCompra}<br>
-      Venta ${o.fechaVenta} — ${o.cantidad} × ${o.precioVenta}<br>
+      Compra ${o.fechaCompra} — ${o.cantidad} × ${o.precioCompra.toFixed(4)}<br>
+      Venta ${o.fechaVenta} — ${o.cantidad} × ${o.precioVenta.toFixed(4)}<br>
       <span class="${r>=0?'green':'red'}">${r.toFixed(2)} €</span>
-      <i class="fa-solid fa-pen icon" onclick="editarOperacion('${o.id}')"></i>
+      <i class="fa-solid fa-pen icon" onclick="editar('${o.id}')"></i>
       <i class="fa-solid fa-trash icon" onclick="borrar('${o.id}')"></i>
     </div>`;
   });
@@ -259,7 +214,7 @@ function renderCerradas(){
 
 function renderResumen(){
   let m=0,a=0;
-  const hoy=new Date(),mes=hoy.toISOString().slice(0,7),anio=hoy.getFullYear().toString();
+  const hoy=new Date(),mes=hoy.toISOString().slice(0,7),anio=hoy.getFullYear();
   operaciones.filter(o=>!o.abierta).forEach(o=>{
     const r=o.cantidad*(o.precioVenta-o.precioCompra);
     if(o.fechaVenta.startsWith(mes))m+=r;
@@ -275,26 +230,26 @@ function renderFiltroMes(){
   meses.forEach(m=>filtroMes.innerHTML+=`<option>${m}</option>`);
 }
 
-function exportarCSV(){
-  let csv="Acción,Fecha compra,Cantidad,Precio compra,Fecha venta,Precio venta,Resultado\n";
-  operaciones.filter(o=>!o.abierta).forEach(o=>{
-    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${o.fechaVenta},${o.precioVenta},${(o.cantidad*(o.precioVenta-o.precioCompra)).toFixed(2)}\n`;
-  });
-  const b=new Blob([csv]);
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);
-  a.download="operaciones.csv";
-  a.click();
+function editar(id){
+  const o=operaciones.find(x=>x.id===id);
+  const pc=parseFloat(prompt("Precio compra",o.precioCompra));
+  const pv=parseFloat(prompt("Precio venta",o.precioVenta));
+  if(pc)o.precioCompra=pc;
+  if(pv)o.precioVenta=pv;
+  guardarEstado();render();
 }
 
-function backup(){
-  const b=new Blob([JSON.stringify(operaciones)]);
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);
-  a.download="backup.json";
-  a.click();
+function borrar(id){
+  papelera=operaciones.find(o=>o.id===id);
+  operaciones=operaciones.filter(o=>o.id!==id);
+  guardarEstado();render();
+}
+function deshacer(){
+  if(papelera){operaciones.push(papelera);papelera=null;guardarEstado();render();}
 }
 
+function exportarCSV(){}
+function backup(){}
 function restaurar(i){
   const r=new FileReader();
   r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render()};
