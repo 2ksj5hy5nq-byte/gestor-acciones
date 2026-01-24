@@ -88,9 +88,16 @@ let papelera=null;
 
 function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
 
-function parsePrecioEU(v){
-  if(!v) return 0;
-  return Number(v.replace(/\./g,"").replace(",","."));
+/* CORRECCIÓN DEFINITIVA DECIMALES CSV EUROPEOS */
+function parsePrecioEU(valor){
+  if(!valor) return 0;
+  let v = valor.replace(/"/g,"").trim();
+  if(v.includes(",") && v.includes(".")){
+    v = v.replace(/\./g,"").replace(",",".");
+  }else if(v.includes(",")){
+    v = v.replace(",",".");
+  }
+  return Number(v);
 }
 
 function guardarCompra(){
@@ -120,7 +127,8 @@ function importarCSV(input){
       const fecha=c[0]?.split("-").reverse().join("-");
       const num=parseInt(c[6]);
       const cantidad=Math.abs(num);
-      const precio=parsePrecioEU(c[7]?.replace(/"/g,""));
+      const precio=parsePrecioEU(c[7]);
+
       if(!accion||!cantidad||!precio)return;
 
       const obj={cantidad,precio,fecha};
@@ -155,6 +163,7 @@ function importarCSV(input){
         }
       });
     });
+
     guardarEstado();render();
   };
   r.readAsText(input.files[0]);
@@ -178,7 +187,6 @@ function editarOperacion(id){
     o.precioVenta=pv;
     o.fechaVenta=fv;
   }
-
   guardarEstado();render();
 }
 
