@@ -13,53 +13,36 @@
 
 <style>
 :root{
-  --bg:#0b1220;
-  --card:#111827;
-  --border:#1f2937;
-  --text:#e5e7eb;
-  --muted:#9ca3af;
-  --green:#22c55e;
-  --red:#ef4444;
-  --accent:#3b82f6;
+  --bg:#0b1220;--card:#111827;--border:#1f2937;--text:#e5e7eb;
+  --muted:#9ca3af;--green:#22c55e;--red:#ef4444;--accent:#3b82f6;
 }
 body{
   background:linear-gradient(180deg,#0b1220,#020617);
-  color:var(--text);
-  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;
+  color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;
   padding:16px;
 }
 h2,h3{margin:0 0 10px 0}
 .section-title{display:flex;align-items:center;gap:8px}
 input,button,select{
-  width:100%;
-  padding:11px;
-  margin:6px 0;
-  border-radius:12px;
-  border:1px solid var(--border);
-  background:#020617;
-  color:var(--text);
+  width:100%;padding:11px;margin:6px 0;border-radius:12px;
+  border:1px solid var(--border);background:#020617;color:var(--text)
 }
 button{border:none;font-weight:600;cursor:pointer}
 .btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);color:white}
 .btn-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#022c22}
 .btn-secondary{background:#020617;border:1px solid var(--border)}
 .card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:16px;
-  margin-bottom:18px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:16px;margin-bottom:18px
 }
 .box{
-  background:#020617;
-  border:1px solid var(--border);
-  border-radius:14px;
-  padding:14px;
-  margin-bottom:14px;
+  background:#020617;border:1px solid var(--border);
+  border-radius:14px;padding:14px;margin-bottom:14px
 }
 .money{font-variant-numeric:tabular-nums}
 .green{color:var(--green);font-weight:700}
 .red{color:var(--red);font-weight:700}
+.range{display:flex;gap:8px}
 </style>
 </head>
 
@@ -68,45 +51,49 @@ button{border:none;font-weight:600;cursor:pointer}
 <h2 class="section-title"><i class="fa-solid fa-chart-line"></i> Gestor de Acciones</h2>
 
 <div class="card">
-<h3 class="section-title"><i class="fa-solid fa-plus"></i> Nueva compra</h3>
-<input id="accion" placeholder="Acción">
-<input id="cantidad" type="number" placeholder="Cantidad">
-<input id="precio" type="number" step="0.01" placeholder="Precio compra">
-<input id="fechaCompra" type="date">
-<button class="btn-primary" onclick="guardarCompra()">Guardar compra</button>
+  <h3 class="section-title"><i class="fa-solid fa-plus"></i> Nueva compra</h3>
+  <input id="accion" placeholder="Acción">
+  <input id="cantidad" type="number" placeholder="Cantidad">
+  <input id="precio" type="number" step="0.01" placeholder="Precio compra">
+  <input id="fechaCompra" type="date">
+  <button class="btn-primary" onclick="guardarCompra()">Guardar compra</button>
 </div>
 
 <div class="card">
-<h3 class="section-title"><i class="fa-solid fa-folder-open"></i> Operaciones abiertas</h3>
-<div id="abiertas"></div>
+  <h3 class="section-title"><i class="fa-solid fa-folder-open"></i> Operaciones abiertas</h3>
+  <div id="abiertas"></div>
 </div>
 
 <div class="card">
-<h3 class="section-title"><i class="fa-solid fa-folder-closed"></i> Operaciones cerradas</h3>
+  <h3 class="section-title"><i class="fa-solid fa-folder-closed"></i> Operaciones cerradas</h3>
 
-<select id="filtroMes" onchange="render()">
-<option value="">Todos los meses</option>
-</select>
+  <select id="filtroMes" onchange="render()">
+    <option value="">Todos los meses</option>
+  </select>
 
-<div id="cerradas"></div>
+  <div class="range">
+    <input type="date" id="desde" onchange="render()">
+    <input type="date" id="hasta" onchange="render()">
+  </div>
 
-<button class="btn-secondary" onclick="deshacer()">Deshacer borrado</button>
-<button class="btn-secondary" onclick="exportarCSV()">Exportar Excel</button>
-<button class="btn-secondary" onclick="backup()">Backup</button>
+  <div id="totalMes"></div>
+  <div id="cerradas"></div>
 
-<input type="file" accept=".csv" onchange="importarCSV(this)">
+  <button class="btn-secondary" onclick="deshacer()">Deshacer borrado</button>
+  <button class="btn-secondary" onclick="exportarCSV()">Exportar Excel</button>
+  <button class="btn-secondary" onclick="backup()">Backup</button>
 
-<input type="file" onchange="restaurar(this)">
+  <!-- IMPORTACIÓN CSV (NUEVO, SIN BORRAR NADA) -->
+  <input type="file" accept=".csv" onchange="importarCSV(this)">
+
+  <input type="file" onchange="restaurar(this)">
 </div>
 
 <script>
-let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
-let papelera=null;
-let cerrarId=null;
+let operaciones=JSON.parse(localStorage.getItem("ops"))||[];
+let papelera=null,cerrarId=null;
 
-function guardarEstado(){
-  localStorage.setItem("ops",JSON.stringify(operaciones));
-}
+function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
 
 function guardarCompra(){
   if(!accion.value||!cantidad.value||!precio.value||!fechaCompra.value)return;
@@ -121,7 +108,7 @@ function guardarCompra(){
   guardarEstado();render();
 }
 
-function mostrarCerrar(id){cerrarId=id;render()}
+function mostrarCerrar(id){cerrarId=id;render();}
 function confirmarCerrar(){
   const pv=Number(document.getElementById("precioVenta").value);
   const fv=document.getElementById("fechaVenta").value;
@@ -135,10 +122,10 @@ function borrar(id){
   operaciones=operaciones.filter(o=>o.id!==id);
   guardarEstado();render();
 }
-function deshacer(){if(papelera){operaciones.push(papelera);papelera=null;guardarEstado();render()}}
+function deshacer(){if(papelera){operaciones.push(papelera);papelera=null;guardarEstado();render();}}
 
 function render(){
-  renderAbiertas();renderCerradas();
+  renderAbiertas();renderCerradas();renderFiltroMes();
 }
 
 function renderAbiertas(){
@@ -148,29 +135,38 @@ function renderAbiertas(){
     <div class="box">
       <strong>${o.accion}</strong><br>
       ${o.fechaCompra}<br>
-      ${o.cantidad} × ${o.precioCompra} €
-      <button onclick="mostrarCerrar('${o.id}')">Cerrar</button>
+      <span class="money">${o.cantidad} × ${o.precioCompra} €</span>
+      <button class="btn-success" onclick="mostrarCerrar('${o.id}')">Cerrar</button>
       ${cerrarId===o.id?`
         <input id="precioVenta" type="number" placeholder="Precio venta">
         <input id="fechaVenta" type="date">
-        <button onclick="confirmarCerrar()">Confirmar</button>
-      `:""}
+        <button onclick="confirmarCerrar()">Confirmar</button>`:""}
     </div>`;
   });
 }
 
 function renderCerradas(){
-  cerradas.innerHTML="";
+  cerradas.innerHTML="";let total=0;
   operaciones.filter(o=>!o.abierta).forEach(o=>{
-    const r=o.cantidad*(o.precioVenta-o.precioCompra);
+    if(filtroMes.value && !o.fechaVenta.startsWith(filtroMes.value))return;
+    if(desde.value && o.fechaVenta<desde.value)return;
+    if(hasta.value && o.fechaVenta>hasta.value)return;
+    const r=o.cantidad*(o.precioVenta-o.precioCompra);total+=r;
     cerradas.innerHTML+=`
     <div class="box">
       <strong>${o.accion}</strong><br>
       ${o.fechaCompra} → ${o.fechaVenta}<br>
-      ${o.cantidad} acciones<br>
+      <span class="money">${o.cantidad} acciones</span><br>
       <span class="${r>=0?'green':'red'}">${r.toFixed(2)} €</span>
     </div>`;
   });
+  totalMes.innerHTML=`<strong>TOTAL FILTRADO: ${total.toFixed(2)} €</strong>`;
+}
+
+function renderFiltroMes(){
+  const meses=[...new Set(operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,7)))];
+  filtroMes.innerHTML='<option value="">Todos los meses</option>';
+  meses.forEach(m=>filtroMes.innerHTML+=`<option>${m}</option>`);
 }
 
 function exportarCSV(){
@@ -192,55 +188,45 @@ function backup(){
 
 function restaurar(i){
   const r=new FileReader();
-  r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render()};
+  r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render();};
   r.readAsText(i.files[0]);
 }
 
-/* IMPORTACIÓN CSV */
+/* IMPORTACIÓN CSV DEGIRO / GENÉRICO */
 function importarCSV(input){
   const r=new FileReader();
   r.onload=e=>{
     const lineas=e.target.result.split("\n").slice(1);
-    const movimientos=[];
+    const compras={};
     lineas.forEach(l=>{
       const c=l.split(",");
-      if(!c[0]||!c[2])return;
-      movimientos.push({
-        fecha:c[0].trim(),
-        accion:c[2].trim(),
-        cantidad:Math.abs(Number(c[6])),
-        precio:Number(c[7].replace(",",".")),
-        tipo:Number(c[6])>0?"compra":"venta"
-      });
+      if(!c[0]||!c[2]||!c[6]||!c[7])return;
+      const accion=c[2].trim();
+      const cantidad=Math.abs(Number(c[6]));
+      const precio=Number(c[7].replace(",","."));
+      const fecha=c[0].trim();
+      if(Number(c[6])>0){
+        compras[accion]=compras[accion]||[];
+        compras[accion].push({cantidad,precio,fecha});
+      }else{
+        const cola=compras[accion];
+        if(!cola||!cola.length)return;
+        const comp=cola.shift();
+        operaciones.push({
+          id:crypto.randomUUID(),
+          accion,
+          cantidad,
+          precioCompra:comp.precio,
+          fechaCompra:comp.fecha,
+          precioVenta:precio,
+          fechaVenta:fecha,
+          abierta:false
+        });
+      }
     });
-    agruparMovimientos(movimientos);
     guardarEstado();render();
   };
   r.readAsText(input.files[0]);
-}
-
-function agruparMovimientos(movs){
-  const compras={};
-  movs.forEach(m=>{
-    if(m.tipo==="compra"){
-      compras[m.accion]=compras[m.accion]||[];
-      compras[m.accion].push(m);
-    }else{
-      const cola=compras[m.accion];
-      if(!cola||!cola.length)return;
-      let c=cola.shift();
-      operaciones.push({
-        id:crypto.randomUUID(),
-        accion:m.accion,
-        cantidad:m.cantidad,
-        precioCompra:c.precio,
-        fechaCompra:c.fecha,
-        precioVenta:m.precio,
-        fechaVenta:m.fecha,
-        abierta:false
-      });
-    }
-  });
 }
 
 render();
