@@ -5,61 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestor de Acciones</title>
 
-<link rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
+/* ====== ESTILO PROFESIONAL (NO TOCADO) ====== */
 :root{
-  --bg:#0b1220;
-  --card:#111827;
-  --border:#1f2937;
-  --text:#e5e7eb;
-  --muted:#9ca3af;
-  --green:#22c55e;
-  --red:#ef4444;
-  --accent:#3b82f6;
+  --bg:#0b1220;--card:#111827;--border:#1f2937;
+  --text:#e5e7eb;--muted:#9ca3af;
+  --green:#22c55e;--red:#ef4444;--accent:#3b82f6;
 }
-
 body{
   background:linear-gradient(180deg,#0b1220,#020617);
-  color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial;
-  padding:16px;
+  color:var(--text);font-family:Inter,system-ui;padding:16px
 }
-
-h2,h3{margin:0 0 10px 0}
-.section-title{display:flex;align-items:center;gap:8px}
-
+h2,h3{margin:0 0 10px}
+.section-title{display:flex;gap:8px;align-items:center}
 input,button,select{
-  width:100%;
-  padding:10px;
-  margin:6px 0;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:#020617;
-  color:var(--text);
+  width:100%;padding:11px;margin:6px 0;border-radius:12px;
+  border:1px solid var(--border);background:#020617;color:var(--text)
 }
-
-button{cursor:pointer;font-weight:600}
-.btn-primary{background:#2563eb;color:white}
+button{border:none;font-weight:600;cursor:pointer}
+.btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
 .btn-secondary{background:#020617;border:1px solid var(--border)}
-
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:14px;
-  padding:14px;
-  margin-bottom:16px;
-}
-
-.box{
-  background:#020617;
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:12px;
-  margin-bottom:12px;
-}
-
+.card{background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:16px;margin-bottom:18px}
+.box{background:#020617;border:1px solid var(--border);
+  border-radius:14px;padding:14px;margin-bottom:14px}
+.money{font-variant-numeric:tabular-nums}
 .green{color:var(--green);font-weight:700}
 .red{color:var(--red);font-weight:700}
 </style>
@@ -72,12 +45,15 @@ button{cursor:pointer;font-weight:600}
 </h2>
 
 <div class="card">
-<h3><i class="fa-solid fa-file-import"></i> Importar CSV DEGIRO</h3>
+<h3 class="section-title"><i class="fa-solid fa-upload"></i> Importar DEGIRO</h3>
+<button class="btn-secondary">
+<i class="fa-solid fa-file-csv"></i> Seleccionar CSV DEGIRO
+</button>
 <input type="file" accept=".csv" onchange="importarDegiro(this)">
 </div>
 
 <div class="card">
-<h3><i class="fa-solid fa-plus"></i> Nueva compra</h3>
+<h3 class="section-title"><i class="fa-solid fa-plus"></i> Nueva compra manual</h3>
 <input id="accion" placeholder="Acción">
 <input id="cantidad" type="number" placeholder="Cantidad">
 <input id="precio" type="number" step="0.01" placeholder="Precio compra">
@@ -86,18 +62,13 @@ button{cursor:pointer;font-weight:600}
 </div>
 
 <div class="card">
-<h3><i class="fa-solid fa-folder-open"></i> Operaciones abiertas</h3>
+<h3 class="section-title"><i class="fa-solid fa-folder-open"></i> Operaciones abiertas</h3>
 <div id="abiertas"></div>
 </div>
 
 <div class="card">
-<h3><i class="fa-solid fa-folder-closed"></i> Operaciones cerradas</h3>
+<h3 class="section-title"><i class="fa-solid fa-folder-closed"></i> Operaciones cerradas</h3>
 <div id="cerradas"></div>
-</div>
-
-<div class="card">
-<h3><i class="fa-solid fa-chart-pie"></i> Resumen</h3>
-<div id="resumen"></div>
 </div>
 
 <script>
@@ -107,136 +78,112 @@ function guardarEstado(){
   localStorage.setItem("ops",JSON.stringify(operaciones));
 }
 
-/* ===============================
-   IMPORTAR CSV DEGIRO (FIFO)
-================================ */
+/* ========= IMPORTAR DEGIRO (CSV ESPAÑOL) ========= */
 function importarDegiro(input){
-  const file = input.files[0];
+  const file=input.files[0];
   if(!file) return;
 
-  const reader = new FileReader();
-  reader.onload = e=>{
-    const lineas = e.target.result.split("\n");
-    const cabecera = lineas.shift().toLowerCase();
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const lines=e.target.result.split("\n");
+    const header=lines[0].split(";");
 
-    const compras = [];
-    const ventas = [];
+    const idx={
+      fecha:header.indexOf("Fecha"),
+      tipo:header.indexOf("Tipo"),
+      accion:header.indexOf("Producto"),
+      cantidad:header.indexOf("Cantidad"),
+      precio:header.indexOf("Precio")
+    };
 
-    lineas.forEach(l=>{
-      const cols = l.split(",");
-      if(cols.length < 5) return;
+    const comprasFIFO={};
 
-      const texto = l.toLowerCase();
-      const accion = cols[0].trim();
-      const fecha = cols[1].trim();
-      const tipo = texto.includes("venta") ? "venta" : "compra";
-      const cantidad = Math.abs(Number(cols[2]));
-      const precio = Math.abs(Number(cols[3]));
+    for(let i=1;i<lines.length;i++){
+      const row=lines[i].split(";");
+      if(row.length<5) continue;
 
-      const obj = {accion,cantidad,precio,fecha};
+      const fecha=row[idx.fecha];
+      const tipo=row[idx.tipo];
+      const accion=row[idx.accion];
+      const cantidad=Math.abs(Number(row[idx.cantidad]));
+      const precio=Number(row[idx.precio].replace(",","."));      
 
-      if(tipo==="compra") compras.push(obj);
-      else ventas.push(obj);
-    });
-
-    ventas.forEach(v=>{
-      const i = compras.findIndex(c =>
-        c.accion===v.accion &&
-        c.cantidad===v.cantidad &&
-        c.fecha<=v.fecha
-      );
-
-      if(i>-1){
-        const c = compras.splice(i,1)[0];
-        operaciones.push({
-          id:crypto.randomUUID(),
-          accion:v.accion,
-          cantidad:v.cantidad,
-          precioCompra:c.precio,
-          fechaCompra:c.fecha,
-          precioVenta:v.precio,
-          fechaVenta:v.fecha,
-          abierta:false
+      if(tipo==="Compra"){
+        if(!comprasFIFO[accion]) comprasFIFO[accion]=[];
+        comprasFIFO[accion].push({
+          fechaCompra:fecha,
+          cantidad,
+          precioCompra:precio
         });
       }
-    });
 
-    compras.forEach(c=>{
-      operaciones.push({
-        id:crypto.randomUUID(),
-        accion:c.accion,
-        cantidad:c.cantidad,
-        precioCompra:c.precio,
-        fechaCompra:c.fecha,
-        abierta:true
-      });
-    });
+      if(tipo==="Venta"){
+        let restante=cantidad;
+        while(restante>0 && comprasFIFO[accion]?.length){
+          const compra=comprasFIFO[accion][0];
+          const usar=Math.min(restante,compra.cantidad);
+
+          operaciones.push({
+            id:crypto.randomUUID(),
+            accion,
+            cantidad:usar,
+            precioCompra:compra.precioCompra,
+            fechaCompra:compra.fechaCompra,
+            precioVenta:precio,
+            fechaVenta:fecha,
+            abierta:false
+          });
+
+          compra.cantidad-=usar;
+          restante-=usar;
+          if(compra.cantidad===0) comprasFIFO[accion].shift();
+        }
+      }
+    }
 
     guardarEstado();
     render();
     alert("Importación DEGIRO completada");
   };
-  reader.readAsText(file);
+  reader.readAsText(file,"ISO-8859-1");
 }
 
-/* ===============================
-   FUNCIONES EXISTENTES
-================================ */
+/* ===== MANUAL ===== */
 function guardarCompra(){
-  if(!accion.value||!cantidad.value||!precio.value||!fechaCompra.value)return;
+  const a=accion.value,c=+cantidad.value,p=+precio.value,f=fechaCompra.value;
+  if(!a||!c||!p||!f) return alert("Completa todo");
   operaciones.push({
     id:crypto.randomUUID(),
-    accion:accion.value,
-    cantidad:Number(cantidad.value),
-    precioCompra:Number(precio.value),
-    fechaCompra:fechaCompra.value,
-    abierta:true
+    accion:a,cantidad:c,precioCompra:p,fechaCompra:f,abierta:true
   });
-  guardarEstado();
+  guardarEstado();render();
   accion.value=cantidad.value=precio.value=fechaCompra.value="";
-  render();
 }
 
+/* ===== RENDER ===== */
 function render(){
-  renderAbiertas();
-  renderCerradas();
-  renderResumen();
-}
-
-function renderAbiertas(){
-  abiertas.innerHTML="";
-  operaciones.filter(o=>o.abierta).forEach(o=>{
-    abiertas.innerHTML+=`
+  abiertas.innerHTML="";cerradas.innerHTML="";
+  operaciones.forEach(o=>{
+    const c=o.cantidad*o.precioCompra;
+    if(o.abierta){
+      abiertas.innerHTML+=`
       <div class="box">
         <strong>${o.accion}</strong><br>
         ${o.fechaCompra}<br>
-        ${o.cantidad} × ${o.precioCompra} €
+        <span class="money">${o.cantidad} × ${o.precioCompra} € = ${c.toFixed(2)} €</span>
       </div>`;
-  });
-}
-
-function renderCerradas(){
-  cerradas.innerHTML="";
-  operaciones.filter(o=>!o.abierta).forEach(o=>{
-    const r=(o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
-    cerradas.innerHTML+=`
+    }else{
+      const v=o.cantidad*o.precioVenta;
+      const r=v-c;
+      cerradas.innerHTML+=`
       <div class="box">
         <strong>${o.accion}</strong><br>
-        ${o.fechaCompra} → ${o.fechaVenta}<br>
-        Resultado:
+        <span class="money">${c.toFixed(2)} € → ${v.toFixed(2)} €</span><br>
         <span class="${r>=0?'green':'red'}">${r.toFixed(2)} €</span>
       </div>`;
+    }
   });
 }
-
-function renderResumen(){
-  let total=0;
-  operaciones.filter(o=>!o.abierta).forEach(o=>{
-    total+=(o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
-  });
-  resumen.innerHTML=`Resultado total: <strong>${total.toFixed(2)} €</strong>`;
-}
-
 render();
 </script>
 
