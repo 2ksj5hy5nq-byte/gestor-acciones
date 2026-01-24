@@ -8,41 +8,93 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
-/* === ESTILOS BASE (SIN CAMBIOS) === */
 :root{
-  --bg:#0b1220;--card:#111827;--border:#1f2937;--text:#e5e7eb;
-  --muted:#9ca3af;--green:#22c55e;--red:#ef4444;--accent:#3b82f6;
+  --bg:#0b1220;
+  --card:#111827;
+  --border:#1f2937;
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+  --green:#22c55e;
+  --red:#ef4444;
+  --accent:#3b82f6;
 }
-body{background:linear-gradient(180deg,#0b1220,#020617);color:var(--text);
-font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;padding:16px}
+
+body{
+  background:linear-gradient(180deg,#0b1220,#020617);
+  color:var(--text);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;
+  padding:16px;
+}
+
 h2,h3{margin:0 0 10px 0}
+
 .section-title{display:flex;align-items:center;gap:8px}
-input,button,select{width:100%;padding:11px;margin:6px 0;border-radius:12px;
-border:1px solid var(--border);background:#020617;color:var(--text)}
+
+input,button,select{
+  width:100%;
+  padding:11px;
+  margin:6px 0;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:#020617;
+  color:var(--text);
+  font-family:inherit;
+}
+
 button{border:none;font-weight:600;cursor:pointer}
-.btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);color:white}
-.btn-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#022c22}
+
+.btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb)}
+.btn-success{background:linear-gradient(135deg,#22c55e,#16a34a)}
 .btn-secondary{background:#020617;border:1px solid var(--border)}
-.card{background:var(--card);border:1px solid var(--border);border-radius:16px;
-padding:16px;margin-bottom:18px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
-.box{background:#020617;border:1px solid var(--border);border-radius:14px;
-padding:14px;margin-bottom:14px}
-.range{display:flex;gap:8px}
-.money{font-family:Inter,monospace}
-.green{color:var(--green);font-weight:700}
-.red{color:var(--red);font-weight:700}
-.icon{cursor:pointer;font-size:18px;padding:6px}
-.icon.edit{color:#38bdf8}
-.icon.delete{color:#ef4444}
+
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:18px;
+}
+
+.box{
+  background:#020617;
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:14px;
+}
+
+.money{font-variant-numeric:tabular-nums;font-family:Inter,monospace}
+.green{color:#22c55e;font-weight:700}
+.red{color:#ef4444;font-weight:700}
+
+.dashboard{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kpi{background:#020617;border:1px solid var(--border);border-radius:14px;padding:14px}
+.kpi-title{font-size:13px;color:var(--muted)}
+.kpi-value{font-size:22px;font-weight:700}
 </style>
 </head>
 
 <body>
 
-<h2 class="section-title"><i class="fa-solid fa-chart-line"></i> Gestor de Acciones</h2>
+<h2 class="section-title"><i class="fa-solid fa-chart-line"></i>Gestor de Acciones</h2>
+
+<div class="card">
+  <div class="dashboard">
+    <div class="kpi">
+      <div class="kpi-title">Mes en curso</div>
+      <div id="kpiMes" class="kpi-value money">0 €</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">Año en curso</div>
+      <div id="kpiAnio" class="kpi-value money">0 €</div>
+    </div>
+  </div>
+</div>
 
 <div class="card">
 <h3>Nueva compra</h3>
@@ -65,10 +117,8 @@ padding:14px;margin-bottom:14px}
 <option value="">Todos los meses</option>
 </select>
 
-<div class="range">
 <input type="date" id="desde" onchange="render()">
 <input type="date" id="hasta" onchange="render()">
-</div>
 
 <div id="totalMes"></div>
 <div id="cerradas"></div>
@@ -76,168 +126,156 @@ padding:14px;margin-bottom:14px}
 <button class="btn-secondary" onclick="deshacer()">Deshacer borrado</button>
 <button class="btn-secondary" onclick="exportarCSV()">Exportar Excel</button>
 <button class="btn-secondary" onclick="backup()">Backup</button>
-
-<!-- IMPORTAR CSV (NUEVO – SIN TOCAR NADA EXISTENTE) -->
-<button class="btn-secondary" onclick="document.getElementById('csvInput').click()">
-Importar operaciones
-</button>
-<input type="file" id="csvInput" accept=".csv" hidden onchange="importarCSV(this)">
-
+<button class="btn-secondary" onclick="document.getElementById('csvInput').click()">Importar operaciones</button>
+<input type="file" id="csvInput" accept=".csv" style="display:none" onchange="importarCSV(this)">
 <input type="file" onchange="restaurar(this)">
 </div>
 
-<div class="card">
-<h3>Resumen</h3>
-<div id="resumen"></div>
-</div>
-
 <script>
-/* === CÓDIGO BASE GUARDADO (SIN BORRAR NADA) === */
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
-let papelera=null, cerrarId=null;
+let papelera=null;
 
-function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones))}
+function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
 
 function guardarCompra(){
   if(!accion.value||!cantidad.value||!precio.value||!fechaCompra.value)return;
   operaciones.push({
-    id:crypto.randomUUID(),accion:accion.value,
-    cantidad:+cantidad.value,precioCompra:+precio.value,
-    fechaCompra:fechaCompra.value,abierta:true
+    id:crypto.randomUUID(),
+    accion:accion.value,
+    cantidad:+cantidad.value,
+    precioCompra:+precio.value,
+    fechaCompra:fechaCompra.value,
+    abierta:true
   });
   accion.value=cantidad.value=precio.value=fechaCompra.value="";
   guardarEstado();render();
 }
 
-function mostrarCerrar(id){cerrarId=id;render()}
-function confirmarCerrar(){
-  const pv=+document.getElementById("precioVenta").value;
-  const fv=document.getElementById("fechaVenta").value;
-  const o=operaciones.find(x=>x.id===cerrarId);
-  o.precioVenta=pv;o.fechaVenta=fv;o.abierta=false;
-  cerrarId=null;guardarEstado();render();
-}
-function cancelarCerrar(){cerrarId=null;render()}
-
-function editar(id){
-  const o=operaciones.find(x=>x.id===id);
-  o.precioVenta=+prompt("Precio venta",o.precioVenta);
-  o.fechaVenta=prompt("Fecha venta",o.fechaVenta);
-  guardarEstado();render();
-}
-
-function borrar(id){
-  papelera=operaciones.find(o=>o.id===id);
-  operaciones=operaciones.filter(o=>o.id!==id);
-  guardarEstado();render();
-}
-function deshacer(){if(papelera){operaciones.push(papelera);papelera=null;guardarEstado();render()}}
-
-function render(){
-  renderAbiertas();renderCerradas();renderFiltroMes();renderResumen();
-}
-
-/* === IMPORTACIÓN CSV DEGIRO (NUEVO, SIN ROMPER NADA) === */
 function importarCSV(input){
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const rows=e.target.result.split("\n").slice(1);
-    const compras={}, ventas={};
+  const file=input.files[0];
+  if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const lines=e.target.result.split(/\r?\n/).slice(1);
+    const compras={},ventas={};
 
-    rows.forEach(r=>{
-      const c=r.split(",");
+    lines.forEach(l=>{
+      const c=l.split(",");
       if(c.length<8)return;
-      const accion=c[2]?.trim();
-      const fecha=c[0]?.split("-").reverse().join("-");
+      const accion=c[2];
+      const fecha=c[0].split("-").reverse().join("-");
       const num=Math.abs(parseInt(c[6]));
       const precio=parseFloat(c[7].replace('"','').replace(',','.'));
       if(!accion||!num||!precio)return;
-
-      if(c[6].includes("-")){
-        ventas[accion]??=[];
-        ventas[accion].push({num,precio,fecha});
-      }else{
-        compras[accion]??=[];
-        compras[accion].push({num,precio,fecha});
-      }
+      const obj={accion,cantidad:num,precio,fecha};
+      if(c[6].startsWith("-")) (ventas[accion]=ventas[accion]||[]).push(obj);
+      else (compras[accion]=compras[accion]||[]).push(obj);
     });
 
     Object.keys(compras).forEach(a=>{
-      while(compras[a].length && ventas[a]?.length){
-        const buy=compras[a].shift();
-        const sell=ventas[a].shift();
-        if(buy.num!==sell.num)continue;
-        operaciones.push({
-          id:crypto.randomUUID(),
-          accion:a,
-          cantidad:buy.num,
-          precioCompra:buy.precio,
-          fechaCompra:buy.fecha,
-          precioVenta:sell.precio,
-          fechaVenta:sell.fecha,
-          abierta:false
-        });
-      }
+      let v=ventas[a]||[];
+      compras[a].forEach(c=>{
+        if(v.length){
+          const s=v.shift();
+          operaciones.push({
+            id:crypto.randomUUID(),
+            accion:a,
+            cantidad:c.cantidad,
+            precioCompra:c.precio,
+            fechaCompra:c.fecha,
+            precioVenta:s.precio,
+            fechaVenta:s.fecha,
+            abierta:false
+          });
+        }else{
+          operaciones.push({
+            id:crypto.randomUUID(),
+            accion:a,
+            cantidad:c.cantidad,
+            precioCompra:c.precio,
+            fechaCompra:c.fecha,
+            abierta:true
+          });
+        }
+      });
     });
+
     guardarEstado();render();
   };
-  reader.readAsText(input.files[0]);
+  r.readAsText(file);
 }
 
-/* === RENDER === */
+function render(){
+  renderAbiertas();renderCerradas();renderFiltroMes();renderDashboard();
+}
+
 function renderAbiertas(){
   abiertas.innerHTML="";
   operaciones.filter(o=>o.abierta).forEach(o=>{
     abiertas.innerHTML+=`
     <div class="box">
-      <b>${o.accion}</b><br>
-      ${o.fechaCompra}<br>
-      ${o.cantidad} × ${o.precioCompra} €
-      <button onclick="mostrarCerrar('${o.id}')">Cerrar</button>
-      ${cerrarId===o.id?`
-      <input id="precioVenta"><input id="fechaVenta" type="date">
-      <button onclick="confirmarCerrar()">OK</button>
-      <button onclick="cancelarCerrar()">X</button>`:""}
+    <b>${o.accion}</b><br>
+    ${o.fechaCompra}<br>
+    <span class="money">${o.cantidad} x ${o.precioCompra} = ${(o.cantidad*o.precioCompra).toFixed(2)} €</span>
     </div>`;
   });
 }
 
 function renderCerradas(){
-  cerradas.innerHTML="";let t=0;
+  cerradas.innerHTML="";let total=0;
   operaciones.filter(o=>!o.abierta).forEach(o=>{
-    const r=o.cantidad*(o.precioVenta-o.precioCompra);t+=r;
+    const c=o.cantidad*o.precioCompra;
+    const v=o.cantidad*o.precioVenta;
+    const r=v-c;total+=r;
     cerradas.innerHTML+=`
     <div class="box">
     <b>${o.accion}</b><br>
-    ${o.fechaCompra} → ${o.fechaVenta}<br>
-    ${o.cantidad} × ${o.precioCompra} / ${o.precioVenta}<br>
-    <span class="${r>=0?'green':'red'}">${r.toFixed(2)} €</span>
-    <span class="icon edit" onclick="editar('${o.id}')">✏️</span>
-    <span class="icon delete" onclick="borrar('${o.id}')">🗑</span>
+    Compra ${o.fechaCompra} — ${o.cantidad} x ${o.precioCompra}<br>
+    Venta ${o.fechaVenta} — ${o.cantidad} x ${o.precioVenta}<br>
+    <div class="${r>=0?'green':'red'}">${r.toFixed(2)} €</div>
     </div>`;
   });
-  totalMes.innerHTML=`TOTAL: ${t.toFixed(2)} €`;
+  totalMes.innerHTML=`TOTAL: ${total.toFixed(2)} €`;
 }
 
 function renderFiltroMes(){
+  const meses=[...new Set(operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,7)))];
   filtroMes.innerHTML='<option value="">Todos</option>';
-  [...new Set(operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,7)))]
-  .forEach(m=>filtroMes.innerHTML+=`<option>${m}</option>`);
+  meses.forEach(m=>filtroMes.innerHTML+=`<option>${m}</option>`);
 }
 
-function renderResumen(){
-  let m=0,a=0;const now=new Date();
+function renderDashboard(){
+  const hoy=new Date();const mes=hoy.toISOString().slice(0,7);
+  const anio=hoy.getFullYear().toString();
+  let m=0,a=0;
   operaciones.filter(o=>!o.abierta).forEach(o=>{
-    const r=o.cantidad*(o.precioVenta-o.precioCompra);
-    if(o.fechaVenta.startsWith(now.toISOString().slice(0,7)))m+=r;
-    if(o.fechaVenta.startsWith(now.getFullYear()+""))a+=r;
+    const r=o.cantidad*o.precioVenta-o.cantidad*o.precioCompra;
+    if(o.fechaVenta.startsWith(mes))m+=r;
+    if(o.fechaVenta.startsWith(anio))a+=r;
   });
-  resumen.innerHTML=`Mes: <b>${m.toFixed(2)} €</b><br>Año: <b>${a.toFixed(2)} €</b>`;
+  kpiMes.textContent=m.toFixed(2)+" €";
+  kpiAnio.textContent=a.toFixed(2)+" €";
 }
 
-function exportarCSV(){/* sin cambios */}
-function backup(){/* sin cambios */}
-function restaurar(i){const r=new FileReader();r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render()};r.readAsText(i.files[0])}
+function exportarCSV(){
+  let csv="Acción,Compra,Venta,Resultado\n";
+  operaciones.filter(o=>!o.abierta).forEach(o=>{
+    csv+=`${o.accion},${o.fechaCompra},${o.fechaVenta},${(o.cantidad*(o.precioVenta-o.precioCompra)).toFixed(2)}\n`;
+  });
+  const b=new Blob([csv]);const a=document.createElement("a");
+  a.href=URL.createObjectURL(b);a.download="operaciones.csv";a.click();
+}
+
+function backup(){
+  const b=new Blob([JSON.stringify(operaciones)]);const a=document.createElement("a");
+  a.href=URL.createObjectURL(b);a.download="backup.json";a.click();
+}
+
+function restaurar(i){
+  const r=new FileReader();
+  r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render();};
+  r.readAsText(i.files[0]);
+}
 
 render();
 </script>
