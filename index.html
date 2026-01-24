@@ -46,15 +46,12 @@ button{
   cursor:pointer;
 }
 
-button:hover{opacity:.9}
-
 .card{
   background:var(--card);
   border:1px solid var(--border);
   border-radius:14px;
   padding:14px;
   margin-bottom:16px;
-  box-shadow:0 10px 30px rgba(0,0,0,.25);
 }
 
 .box{
@@ -73,32 +70,11 @@ button:hover{opacity:.9}
 }
 
 .small{font-size:13px;color:var(--muted)}
-
 .green{color:var(--green);font-weight:700}
 .red{color:var(--red);font-weight:700}
-
-.icon{
-  cursor:pointer;
-  font-size:18px;
-  opacity:.85;
-}
-.icon:hover{opacity:1}
-
+.icon{cursor:pointer;font-size:18px}
 .range{display:flex;gap:8px}
-
-.modal{
-  background:#020617;
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:10px;
-  margin-top:10px;
-}
-
-hr{
-  border:none;
-  border-top:1px solid var(--border);
-  margin:10px 0;
-}
+.modal{background:#020617;border:1px solid var(--border);border-radius:12px;padding:10px;margin-top:10px}
 </style>
 </head>
 
@@ -150,6 +126,23 @@ hr{
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
 let papelera=null;
 let cerrarId=null;
+
+/* =========================
+   BACKUP SEMANAL AUTOMÁTICO
+========================= */
+function comprobarBackupSemanal(){
+  const ultima = localStorage.getItem("ultimoBackup");
+  if(!ultima) return;
+
+  const dias = (Date.now() - new Date(ultima)) / (1000*60*60*24);
+  if(dias >= 7){
+    if(confirm("Han pasado más de 7 días desde el último backup.\n¿Quieres guardar uno ahora?")){
+      backup();
+    }
+  }
+}
+
+/* ========================= */
 
 function guardarEstado(){
   localStorage.setItem("ops",JSON.stringify(operaciones));
@@ -294,43 +287,15 @@ function renderResumen(){
   `;
 }
 
-function exportarCSV(){
-  let csv="Acción,Fecha compra,Cantidad,Precio compra,Importe compra,Fecha venta,Precio venta,Importe venta,Resultado\n";
-  let totalGanancias=0;
-  let totalPerdidas=0;
-
-  operaciones.filter(o=>!o.abierta).forEach(o=>{
-    if(filtroMes.value && !o.fechaVenta.startsWith(filtroMes.value))return;
-    if(desde.value && o.fechaVenta<desde.value)return;
-    if(hasta.value && o.fechaVenta>hasta.value)return;
-
-    const compra=o.cantidad*o.precioCompra;
-    const venta=o.cantidad*o.precioVenta;
-    const res=venta-compra;
-
-    if(res>=0) totalGanancias+=res;
-    else totalPerdidas+=Math.abs(res);
-
-    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${compra.toFixed(2)},${o.fechaVenta},${o.precioVenta},${venta.toFixed(2)},${res.toFixed(2)}\n`;
-  });
-
-  csv+=`\nTOTAL GANANCIAS,,,,,,,,${totalGanancias.toFixed(2)}\n`;
-  csv+=`TOTAL PÉRDIDAS,,,,,,,,${totalPerdidas.toFixed(2)}\n`;
-  csv+=`RESULTADO NETO,,,,,,,,${(totalGanancias-totalPerdidas).toFixed(2)}\n`;
-
-  const blob=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="operaciones_fiscal.csv";
-  a.click();
-}
-
+/* ========= BACKUP CON FECHA ========= */
 function backup(){
+  const hoy=new Date().toISOString().slice(0,10);
   const b=new Blob([JSON.stringify(operaciones)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(b);
-  a.download="backup.json";
+  a.download=`gestor_acciones_backup_${hoy}.json`;
   a.click();
+  localStorage.setItem("ultimoBackup",new Date().toISOString());
 }
 
 function restaurar(i){
@@ -344,6 +309,7 @@ function restaurar(i){
 }
 
 render();
+comprobarBackupSemanal();
 </script>
 
 </body>
