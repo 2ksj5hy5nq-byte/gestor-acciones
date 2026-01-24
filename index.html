@@ -1,96 +1,166 @@
-<!-- ====== IMPORTAR CSV DEGIRO ====== -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestor de Acciones</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+:root{
+  --bg:#0b1220;
+  --card:#111827;
+  --border:#1f2937;
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+  --green:#22c55e;
+  --red:#ef4444;
+  --accent:#3b82f6;
+}
+body{
+  background:linear-gradient(180deg,#0b1220,#020617);
+  color:var(--text);
+  font-family:Inter,Arial;
+  padding:16px;
+}
+input,button,select{
+  width:100%;
+  padding:11px;
+  margin:6px 0;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:#020617;
+  color:var(--text);
+}
+button{cursor:pointer;font-weight:600}
+.btn{background:var(--accent);color:white}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px}
+.box{background:#020617;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
+.green{color:var(--green);font-weight:700}
+.red{color:var(--red);font-weight:700}
+.money{font-variant-numeric:tabular-nums}
+</style>
+</head>
+
+<body>
+
+<h2><i class="fa-solid fa-chart-line"></i> Gestor de Acciones</h2>
+
 <div class="card">
-  <h3 class="section-title">
-    <i class="fa-solid fa-file-import"></i> Importar CSV DEGIRO
-  </h3>
-  <input type="file" accept=".csv" onchange="importarCSV(this)">
+<h3>📥 Importar CSV (DEGIRO)</h3>
+<input type="file" accept=".csv" onchange="importarCSV(this)">
+</div>
+
+<div class="card">
+<h3>📂 Operaciones cerradas</h3>
+<div id="cerradas"></div>
 </div>
 
 <script>
-/* ===============================
-   IMPORTADOR CSV DEGIRO
-================================ */
+let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
 
+/* ===============================
+   IMPORTAR CSV DEGIRO
+================================ */
 function importarCSV(input){
-  const file = input.files[0];
+  const file=input.files[0];
   if(!file) return;
 
-  const reader = new FileReader();
-  reader.onload = e => procesarCSV(e.target.result);
-  reader.readAsText(file, "UTF-8");
+  const reader=new FileReader();
+  reader.onload=e=>{
+    procesarCSV(e.target.result);
+  };
+  reader.readAsText(file,"UTF-8");
 }
 
 function procesarCSV(texto){
-  const lineas = texto.split("\n").slice(1); // quitar cabecera
-  const compras = [];
-  const ventas = [];
+  const lineas=texto.split("\n").slice(1);
+  let compras=[], ventas=[];
 
-  lineas.forEach(l => {
+  lineas.forEach(l=>{
     if(!l.trim()) return;
+    const c=l.split(",");
 
-    const c = l.split(",");
+    const fecha=c[0];
+    const accion=c[2];
+    const cantidad=parseInt(c[6]);
+    const precio=parseFloat(c[7].replace('"','').replace(',','.'));
+    const total=parseFloat(c[15].replace('"','').replace(',','.'));
 
-    const fecha = convertirFecha(c[0]);
-    const accion = c[2]?.trim();
-    const numero = Number(c[6].replace('"','').replace(',','.'));
-    const precio = Number(c[7].replace('"','').replace(',','.'));
-    const totalEUR = Number(c[14].replace('"','').replace(',','.'));
+    if(!accion || !cantidad || !precio) return;
 
-    if(!accion || !numero || !fecha) return;
-
-    const op = {
+    const registro={
       accion,
       fecha,
-      cantidad: Math.abs(numero),
+      cantidad:Math.abs(cantidad),
       precio,
-      total: Math.abs(totalEUR)
+      total:Math.abs(total)
     };
 
-    if(numero > 0){
-      compras.push(op);
-    } else {
-      ventas.push(op);
-    }
+    if(cantidad>0) compras.push(registro);
+    else ventas.push(registro);
   });
 
-  emparejarOperaciones(compras, ventas);
+  emparejarOperaciones(compras,ventas);
 }
 
-function emparejarOperaciones(compras, ventas){
-  compras.sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
-  ventas.sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
-
+function emparejarOperaciones(compras,ventas){
   compras.forEach(compra=>{
-    const venta = ventas.find(v =>
-      v.accion === compra.accion &&
-      v.cantidad === compra.cantidad &&
-      new Date(v.fecha) > new Date(compra.fecha)
+    const idx=ventas.findIndex(v=>
+      v.accion===compra.accion &&
+      v.cantidad===compra.cantidad
     );
+    if(idx===-1) return;
 
-    if(!venta) return;
+    const venta=ventas[idx];
+    ventas.splice(idx,1);
 
     operaciones.push({
-      id: crypto.randomUUID(),
-      accion: compra.accion,
-      cantidad: compra.cantidad,
-      precioCompra: compra.total / compra.cantidad,
-      fechaCompra: compra.fecha,
-      precioVenta: venta.total / venta.cantidad,
-      fechaVenta: venta.fecha,
-      abierta: false
+      id:crypto.randomUUID(),
+      accion:compra.accion,
+      cantidad:compra.cantidad,
+      precioCompra:compra.precio,
+      fechaCompra:compra.fecha,
+      precioVenta:venta.precio,
+      fechaVenta:venta.fecha,
+      abierta:false
     });
-
-    ventas.splice(ventas.indexOf(venta),1);
   });
 
-  guardarEstado();
+  localStorage.setItem("ops",JSON.stringify(operaciones));
   render();
-  alert("CSV importado correctamente ✔");
 }
 
-function convertirFecha(f){
-  // DEGIRO: DD-MM-YYYY → YYYY-MM-DD
-  const [d,m,y] = f.split("-");
-  return `${y}-${m}-${d}`;
+/* ===============================
+   RENDER
+================================ */
+function render(){
+  const cont=document.getElementById("cerradas");
+  cont.innerHTML="";
+  operaciones.filter(o=>!o.abierta).forEach(o=>{
+    const compra=o.cantidad*o.precioCompra;
+    const venta=o.cantidad*o.precioVenta;
+    const res=venta-compra;
+    cont.innerHTML+=`
+      <div class="box">
+        <strong>${o.accion}</strong><br>
+        ${o.fechaCompra} → ${o.fechaVenta}<br>
+        <span class="money">
+          ${o.cantidad} × ${o.precioCompra} € → ${o.precioVenta} €
+        </span><br>
+        <div class="${res>=0?'green':'red'}">
+          ${res>=0?'+':''}${res.toFixed(2)} €
+        </div>
+      </div>
+    `;
+  });
 }
+
+render();
 </script>
+
+</body>
+</html>
