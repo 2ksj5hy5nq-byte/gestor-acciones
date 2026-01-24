@@ -12,7 +12,7 @@ body {
   font-family:Arial;
   padding:15px;
 }
-input, button, select {
+input, button {
   width:100%;
   padding:10px;
   margin:6px 0;
@@ -21,6 +21,7 @@ input, button, select {
 }
 button {
   background:#22c55e;
+  color:black;
   font-weight:bold;
 }
 .card {
@@ -33,13 +34,16 @@ button {
   display:flex;
   justify-content:space-between;
   align-items:center;
+  gap:10px;
 }
 .small { opacity:.8; font-size:14px }
-hr { opacity:.2 }
-.green { color:#22c55e }
-.red { color:#ef4444 }
-.icon { cursor:pointer; margin-left:10px }
-.range { display:flex; gap:8px }
+.modal {
+  background:#020617;
+  padding:12px;
+  border-radius:10px;
+  margin-top:10px;
+}
+.danger { background:#ef4444; color:white }
 </style>
 </head>
 
@@ -49,10 +53,12 @@ hr { opacity:.2 }
 
 <div class="card">
   <h3>Nueva compra</h3>
+
   <input id="accion" placeholder="Acción">
   <input id="cantidad" type="number" placeholder="Cantidad">
   <input id="precio" type="number" step="0.01" placeholder="Precio compra">
   <input id="fechaCompra" type="date">
+
   <button onclick="guardarCompra()">Guardar compra</button>
 </div>
 
@@ -62,44 +68,29 @@ hr { opacity:.2 }
 </div>
 
 <div class="card">
-  <h3>📁 Operaciones cerradas</h3>
-
-  <select id="filtroMes" onchange="render()">
-    <option value="">Todos los meses</option>
-  </select>
-
-  <div class="range">
-    <input type="date" id="desde" onchange="render()">
-    <input type="date" id="hasta" onchange="render()">
-  </div>
-
-  <div id="totalMes"></div>
-  <div id="cerradas"></div>
-
-  <button onclick="deshacer()">↩️ Deshacer último borrado</button>
-  <button onclick="exportarCSV()">📤 Exportar Excel (CSV)</button>
-  <button onclick="backup()">💾 Backup</button>
-  <input type="file" onchange="restaurar(this)">
-</div>
-
-<div class="card">
   <h3>📊 Resumen</h3>
   <div id="resumen"></div>
 </div>
 
 <script>
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
-let papelera = null;
+let cerrarId = null;
 
 function guardarEstado() {
   localStorage.setItem("ops", JSON.stringify(operaciones));
 }
 
+// =================== GUARDAR COMPRA ===================
 function guardarCompra() {
+  const accionEl = document.getElementById("accion");
+  const cantidadEl = document.getElementById("cantidad");
+  const precioEl = document.getElementById("precio");
+  const fechaEl = document.getElementById("fechaCompra");
+
   const accion = accionEl.value.trim();
   const cantidad = Number(cantidadEl.value);
   const precio = Number(precioEl.value);
-  const fechaCompra = fechaCompraEl.value;
+  const fechaCompra = fechaEl.value;
 
   if (!accion || !cantidad || !precio || !fechaCompra) {
     alert("Completa todos los datos");
@@ -118,165 +109,101 @@ function guardarCompra() {
   });
 
   guardarEstado();
+
+  // 🔥 LIMPIAR CAMPOS AUTOMÁTICAMENTE
+  accionEl.value = "";
+  cantidadEl.value = "";
+  precioEl.value = "";
+  fechaEl.value = "";
+
   render();
 }
 
-function cerrarOperacion(id) {
-  const precioVenta = Number(prompt("Precio de venta"));
-  const fechaVenta = prompt("Fecha de venta (YYYY-MM-DD)");
-  if (!precioVenta || !fechaVenta) return;
+// =================== MOSTRAR CIERRE ===================
+function mostrarCerrar(id) {
+  cerrarId = id;
+  render();
+}
 
-  const op = operaciones.find(o => o.id === id);
+function confirmarCerrar() {
+  const precioVenta = Number(document.getElementById("precioVenta").value);
+  const fechaVenta = document.getElementById("fechaVenta").value;
+
+  if (!precioVenta || !fechaVenta) {
+    alert("Completa precio y fecha");
+    return;
+  }
+
+  const op = operaciones.find(o => o.id === cerrarId);
+  if (!op) return;
+
   op.precioVenta = precioVenta;
   op.fechaVenta = fechaVenta;
   op.abierta = false;
 
+  cerrarId = null;
   guardarEstado();
   render();
 }
 
-function editarOperacion(id) {
-  const op = operaciones.find(o => o.id === id);
-  const nuevoPrecio = Number(prompt("Nuevo precio de venta", op.precioVenta));
-  const nuevaFecha = prompt("Nueva fecha de venta", op.fechaVenta);
-  if (!nuevoPrecio || !nuevaFecha) return;
-
-  op.precioVenta = nuevoPrecio;
-  op.fechaVenta = nuevaFecha;
-
-  guardarEstado();
+function cancelarCerrar() {
+  cerrarId = null;
   render();
 }
 
-function borrar(id) {
-  papelera = operaciones.find(o => o.id === id);
-  operaciones = operaciones.filter(o => o.id !== id);
-  guardarEstado();
-  render();
-}
-
-function deshacer() {
-  if (!papelera) return;
-  operaciones.push(papelera);
-  papelera = null;
-  guardarEstado();
-  render();
-}
-
+// =================== RENDER ===================
 function render() {
   renderAbiertas();
-  renderCerradas();
   renderResumen();
-  renderFiltroMes();
 }
 
 function renderAbiertas() {
-  abiertas.innerHTML = "";
+  const cont = document.getElementById("abiertas");
+  cont.innerHTML = "";
+
   operaciones.filter(o => o.abierta).forEach(o => {
-    abiertas.innerHTML += `
-      <div class="row">
-        <div>
-          <strong>${o.accion}</strong><br>
-          ${o.fechaCompra}<br>
-          ${o.cantidad} × ${o.precioCompra} € = ${(o.cantidad * o.precioCompra).toFixed(2)} €
-        </div>
-        <button onclick="cerrarOperacion('${o.id}')">Cerrar</button>
-      </div><hr>`;
-  });
-}
-
-function renderCerradas() {
-  cerradas.innerHTML = "";
-  let total = 0;
-  const mes = filtroMes.value;
-  const d = desde.value;
-  const h = hasta.value;
-
-  operaciones.filter(o => !o.abierta).forEach(o => {
-    if (mes && !o.fechaVenta.startsWith(mes)) return;
-    if (d && o.fechaVenta < d) return;
-    if (h && o.fechaVenta > h) return;
-
-    const compra = o.cantidad * o.precioCompra;
-    const venta = o.cantidad * o.precioVenta;
-    const resultado = venta - compra;
-    total += resultado;
-
-    cerradas.innerHTML += `
+    cont.innerHTML += `
       <div>
-        <strong>${o.accion}</strong><br>
-        ${o.fechaCompra}<br>
-        ${o.cantidad} × ${o.precioCompra} € = ${compra.toFixed(2)} €<br><br>
-        ${o.fechaVenta}<br>
-        ${o.cantidad} × ${o.precioVenta} € = ${venta.toFixed(2)} €<br>
-        <strong class="${resultado>=0?'green':'red'}">
-          ${resultado>=0?'+':''}${resultado.toFixed(2)} €
-        </strong>
-        <span class="icon" onclick="editarOperacion('${o.id}')">✏️</span>
-        <span class="icon" onclick="borrar('${o.id}')">🗑</span>
-        <hr>
-      </div>`;
-  });
+        <div class="row">
+          <div>
+            <strong>${o.accion}</strong><br>
+            <span class="small">${o.cantidad} × ${o.precioCompra} €</span><br>
+            <span class="small">${o.fechaCompra}</span>
+          </div>
+          <button onclick="mostrarCerrar('${o.id}')">Cerrar</button>
+        </div>
 
-  totalMes.innerHTML = `<strong>TOTAL FILTRADO: ${total.toFixed(2)} €</strong>`;
+        ${cerrarId === o.id ? `
+          <div class="modal">
+            <input id="precioVenta" type="number" step="0.01" placeholder="Precio venta">
+            <input id="fechaVenta" type="date">
+            <button onclick="confirmarCerrar()">Confirmar cierre</button>
+            <button class="danger" onclick="cancelarCerrar()">Cancelar</button>
+          </div>
+        ` : ""}
+        <hr>
+      </div>
+    `;
+  });
 }
 
 function renderResumen() {
-  let inv = 0, rec = 0;
+  let invertido = 0;
+  let recuperado = 0;
+
   operaciones.forEach(o => {
-    inv += o.cantidad * o.precioCompra;
-    if (!o.abierta) rec += o.cantidad * o.precioVenta;
+    invertido += o.cantidad * o.precioCompra;
+    if (!o.abierta) {
+      recuperado += o.cantidad * o.precioVenta;
+    }
   });
-  resumen.innerHTML = `
-    Capital invertido: ${inv.toFixed(2)} €<br>
-    Capital recuperado: ${rec.toFixed(2)} €<br>
-    Resultado total: ${(rec - inv).toFixed(2)} €
+
+  document.getElementById("resumen").innerHTML = `
+    Capital invertido: ${invertido.toFixed(2)} €<br>
+    Capital recuperado: ${recuperado.toFixed(2)} €<br>
+    Resultado: ${(recuperado - invertido).toFixed(2)} €
   `;
 }
-
-function renderFiltroMes() {
-  const meses = [...new Set(
-    operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,7))
-  )];
-  filtroMes.innerHTML = `<option value="">Todos los meses</option>`;
-  meses.forEach(m=>filtroMes.innerHTML+=`<option>${m}</option>`);
-}
-
-function exportarCSV() {
-  let csv = "Acción,Fecha compra,Cantidad,Precio compra,Fecha venta,Precio venta\n";
-  operaciones.filter(o=>!o.abierta).forEach(o=>{
-    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${o.fechaVenta},${o.precioVenta}\n`;
-  });
-  const blob = new Blob([csv],{type:"text/csv"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "operaciones.csv";
-  a.click();
-}
-
-function backup() {
-  const blob = new Blob([JSON.stringify(operaciones)],{type:"application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "backup.json";
-  a.click();
-}
-
-function restaurar(input) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    operaciones = JSON.parse(e.target.result);
-    guardarEstado();
-    render();
-  };
-  reader.readAsText(input.files[0]);
-}
-
-// Shortcuts
-const accionEl = accion;
-const cantidadEl = cantidad;
-const precioEl = precio;
-const fechaCompraEl = fechaCompra;
 
 render();
 </script>
