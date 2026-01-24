@@ -8,40 +8,29 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 <style>
 :root{
   --bg:#0b1220;--card:#111827;--border:#1f2937;
   --text:#e5e7eb;--muted:#9ca3af;
-  --green:#22c55e;--red:#ef4444;--accent:#3b82f6;
+  --green:#22c55e;--red:#ef4444;
 }
 body{
   background:linear-gradient(180deg,#0b1220,#020617);
   color:var(--text);
-  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;
+  font-family:Inter,system-ui;
   padding:16px;
 }
 h2,h3{margin:0 0 10px 0}
-.section-title{display:flex;align-items:center;gap:8px}
 input,button,select{
   width:100%;padding:11px;margin:6px 0;border-radius:12px;
   border:1px solid var(--border);background:#020617;color:var(--text);
 }
 button{border:none;font-weight:600;cursor:pointer}
-.btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb)}
-.btn-success{background:linear-gradient(135deg,#22c55e,#16a34a)}
-.btn-secondary{background:#020617;border:1px solid var(--border)}
-.card{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:16px;padding:16px;margin-bottom:18px;
-}
-.box{
-  background:#020617;border:1px solid var(--border);
-  border-radius:14px;padding:14px;margin-bottom:14px;
-}
-.money{font-variant-numeric:tabular-nums;font-family:Inter,monospace}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:18px}
+.box{background:#020617;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px}
+.money{font-variant-numeric:tabular-nums}
 .green{color:var(--green);font-weight:700}
 .red{color:var(--red);font-weight:700}
 .icon{cursor:pointer;margin-left:8px}
@@ -54,7 +43,7 @@ button{border:none;font-weight:600;cursor:pointer}
 
 <body>
 
-<h2 class="section-title"><i class="fa-solid fa-chart-line"></i> Gestor de Acciones</h2>
+<h2><i class="fa-solid fa-chart-line"></i> Gestor de Acciones</h2>
 
 <div class="card">
   <div class="dashboard">
@@ -75,7 +64,7 @@ button{border:none;font-weight:600;cursor:pointer}
 <input id="cantidad" type="number" placeholder="Cantidad">
 <input id="precio" type="number" step="0.0001" placeholder="Precio compra">
 <input id="fechaCompra" type="date">
-<button class="btn-primary" onclick="guardarCompra()">Guardar compra</button>
+<button onclick="guardarCompra()">Guardar compra</button>
 </div>
 
 <div class="card">
@@ -95,10 +84,10 @@ button{border:none;font-weight:600;cursor:pointer}
 <div id="totalMes"></div>
 <div id="cerradas"></div>
 
-<button class="btn-secondary" onclick="deshacer()">Deshacer borrado</button>
-<button class="btn-secondary" onclick="exportarCSV()">Exportar Excel</button>
-<button class="btn-secondary" onclick="backup()">Backup</button>
-<button class="btn-secondary" onclick="csvInput.click()">Importar operaciones</button>
+<button onclick="deshacer()">Deshacer borrado</button>
+<button onclick="exportarCSV()">Exportar Excel</button>
+<button onclick="backup()">Backup</button>
+<button onclick="csvInput.click()">Importar operaciones</button>
 <input type="file" id="csvInput" accept=".csv" hidden onchange="importarCSV(this)">
 <input type="file" onchange="restaurar(this)">
 </div>
@@ -107,13 +96,24 @@ button{border:none;font-weight:600;cursor:pointer}
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
 let papelera=null;
 
-function guardarEstado(){
-  localStorage.setItem("ops",JSON.stringify(operaciones));
+function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
+
+/* CSV robusto: respeta comas dentro de comillas */
+function parseCSVLine(line){
+  const r=[]; let cur="",q=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c=='"' ){q=!q;continue}
+    if(c=="," && !q){r.push(cur);cur="";continue}
+    cur+=c;
+  }
+  r.push(cur);
+  return r;
 }
 
-function parseNumeroEU(v){
-  if(!v) return NaN;
-  return parseFloat(v.replace(/"/g,"").replace(/\./g,"").replace(",","."));
+function parseEU(v){
+  if(!v)return NaN;
+  return parseFloat(v.replace(/\./g,"").replace(",","."));
 }
 
 function guardarCompra(){
@@ -131,43 +131,36 @@ function guardarCompra(){
 }
 
 function importarCSV(input){
-  const file=input.files[0];
-  if(!file) return;
+  const file=input.files[0]; if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const rows=e.target.result.split(/\r?\n/).filter(l=>l.trim());
+    const h=parseCSVLine(rows[0]);
 
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const filas=e.target.result.split(/\r?\n/).filter(l=>l.trim());
-    if(filas.length<2) return;
-
-    const headers=filas[0].split(",");
-    const idxAccion=headers.indexOf("Producto");
-    const idxFecha=headers.indexOf("Fecha");
-    const idxNumero=headers.indexOf("Número");
-    const idxPrecio=headers.indexOf("Precio");
+    const iAcc=h.indexOf("Producto");
+    const iFecha=h.indexOf("Fecha");
+    const iNum=h.indexOf("Número");
+    const iPrecio=h.indexOf("Precio");
 
     const compras={},ventas={};
 
-    filas.slice(1).forEach(f=>{
-      const c=f.split(",");
-      const accion=c[idxAccion]?.trim();
-      const fecha=c[idxFecha]?.split("-").reverse().join("-");
-      const numero=parseInt(c[idxNumero]);
-      const cantidad=Math.abs(numero);
-      const precio=parseNumeroEU(c[idxPrecio]);
+    rows.slice(1).forEach(l=>{
+      const c=parseCSVLine(l);
+      const accion=c[iAcc];
+      const fecha=c[iFecha]?.split("-").reverse().join("-");
+      const num=parseInt(c[iNum]);
+      const cantidad=Math.abs(num);
+      const precio=parseEU(c[iPrecio]);
 
-      if(!accion || !cantidad || isNaN(precio)) return;
+      if(!accion||!cantidad||isNaN(precio))return;
 
-      const obj={accion,cantidad,precio,fecha};
-
-      if(numero<0){
-        (ventas[accion]=ventas[accion]||[]).push(obj);
-      }else{
-        (compras[accion]=compras[accion]||[]).push(obj);
-      }
+      const o={accion,cantidad,precio,fecha};
+      if(num<0)(ventas[accion]=ventas[accion]||[]).push(o);
+      else (compras[accion]=compras[accion]||[]).push(o);
     });
 
     Object.keys(compras).forEach(a=>{
-      let v=ventas[a]||[];
+      const v=ventas[a]||[];
       compras[a].forEach(c=>{
         if(v.length){
           const s=v.shift();
@@ -194,10 +187,9 @@ function importarCSV(input){
       });
     });
 
-    guardarEstado();
-    render();
+    guardarEstado();render();
   };
-  reader.readAsText(file);
+  r.readAsText(file);
 }
 
 function editar(id){
@@ -216,16 +208,12 @@ function borrar(id){
 }
 function deshacer(){
   if(!papelera)return;
-  operaciones.push(papelera);
-  papelera=null;
+  operaciones.push(papelera);papelera=null;
   guardarEstado();render();
 }
 
 function render(){
-  renderAbiertas();
-  renderCerradas();
-  renderFiltroMes();
-  renderDashboard();
+  renderAbiertas();renderCerradas();renderFiltroMes();renderDashboard();
 }
 
 function renderAbiertas(){
@@ -245,10 +233,8 @@ function renderCerradas(){
     if(filtroMes.value && !o.fechaVenta.startsWith(filtroMes.value))return;
     if(desde.value && o.fechaVenta<desde.value)return;
     if(hasta.value && o.fechaVenta>hasta.value)return;
-
     const r=o.cantidad*(o.precioVenta-o.precioCompra);
     total+=r;
-
     cerradas.innerHTML+=`
     <div class="box">
       <b>${o.accion}</b><br>
@@ -263,23 +249,19 @@ function renderCerradas(){
 }
 
 function renderFiltroMes(){
-  const meses=[...new Set(operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,7)))];
+  const m=[...new Set(operaciones.filter(o=>!o.abierta).map(o=>o.fechaVenta.slice(0,7)))];
   filtroMes.innerHTML='<option value="">Todos</option>';
-  meses.forEach(m=>filtroMes.innerHTML+=`<option>${m}</option>`);
+  m.forEach(x=>filtroMes.innerHTML+=`<option>${x}</option>`);
 }
 
 function renderDashboard(){
-  const hoy=new Date();
-  const mes=hoy.toISOString().slice(0,7);
-  const anio=hoy.getFullYear().toString();
+  const h=new Date(),mes=h.toISOString().slice(0,7),anio=h.getFullYear()+"";
   let m=0,a=0;
-
   operaciones.filter(o=>!o.abierta).forEach(o=>{
     const r=o.cantidad*(o.precioVenta-o.precioCompra);
-    if(o.fechaVenta.startsWith(mes)) m+=r;
-    if(o.fechaVenta.startsWith(anio)) a+=r;
+    if(o.fechaVenta.startsWith(mes))m+=r;
+    if(o.fechaVenta.startsWith(anio))a+=r;
   });
-
   kpiMes.textContent=m.toFixed(2)+" €";
   kpiAnio.textContent=a.toFixed(2)+" €";
 }
@@ -289,32 +271,23 @@ function exportarCSV(){
   operaciones.filter(o=>!o.abierta).forEach(o=>{
     csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${o.fechaVenta},${o.precioVenta},${(o.cantidad*(o.precioVenta-o.precioCompra)).toFixed(2)}\n`;
   });
-  const b=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);
-  a.download="operaciones.csv";
-  a.click();
+  const b=new Blob([csv]);const a=document.createElement("a");
+  a.href=URL.createObjectURL(b);a.download="operaciones.csv";a.click();
 }
 
 function backup(){
-  const b=new Blob([JSON.stringify(operaciones)],{type:"application/json"});
+  const b=new Blob([JSON.stringify(operaciones)]);
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);
-  a.download="backup.json";
-  a.click();
+  a.href=URL.createObjectURL(b);a.download="backup.json";a.click();
 }
 
 function restaurar(i){
   const r=new FileReader();
-  r.onload=e=>{
-    operaciones=JSON.parse(e.target.result);
-    guardarEstado();render();
-  };
+  r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render();};
   r.readAsText(i.files[0]);
 }
 
 render();
 </script>
-
 </body>
 </html>
