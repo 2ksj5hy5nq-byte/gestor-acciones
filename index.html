@@ -14,12 +14,12 @@
 :root{
   --bg:#0b1220;--card:#111827;--border:#1f2937;
   --text:#e5e7eb;--muted:#9ca3af;
-  --green:#22c55e;--red:#ef4444;--accent:#3b82f6;
+  --green:#22c55e;--red:#ef4444;
 }
 body{
   background:linear-gradient(180deg,#0b1220,#020617);
   color:var(--text);
-  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;
+  font-family:Inter,system-ui;
   padding:16px;
 }
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px}
@@ -88,25 +88,28 @@ let papelera=null;
 
 function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
 
+/* === CSV robusto con comas y decimales europeos === */
 function parseCSVLine(line){
-  const result=[];
-  let cur="",inQuotes=false;
+  const out=[]; let cur="",q=false;
   for(let i=0;i<line.length;i++){
-    const ch=line[i];
-    if(ch==='"'){inQuotes=!inQuotes;continue;}
-    if(ch===',' && !inQuotes){result.push(cur);cur="";continue;}
-    cur+=ch;
+    const c=line[i];
+    if(c=='"'){q=!q;continue;}
+    if(c==',' && !q){out.push(cur);cur="";continue;}
+    cur+=c;
   }
-  result.push(cur);
-  return result;
+  out.push(cur);
+  return out;
 }
 
+/* 19,7000  | 155,2050 | 0,2935 */
 function parsePrecioEU(v){
-  if(!v) return 0;
+  if(!v)return 0;
   return Number(v.replace(/\./g,"").replace(",","."));
 }
 
+/* === Manual === */
 function guardarCompra(){
+  if(!accion.value||!cantidad.value||!precio.value||!fechaCompra.value)return;
   operaciones.push({
     id:crypto.randomUUID(),
     accion:accion.value.trim(),
@@ -119,6 +122,7 @@ function guardarCompra(){
   guardarEstado();render();
 }
 
+/* === Importación CSV DEGIRO === */
 function importarCSV(input){
   const r=new FileReader();
   r.onload=e=>{
@@ -128,6 +132,7 @@ function importarCSV(input){
     filas.forEach(f=>{
       if(!f.trim())return;
       const c=parseCSVLine(f);
+
       const accion=c[2]?.trim();
       const fecha=c[0]?.split("-").reverse().join("-");
       const num=parseInt(c[6]);
@@ -138,15 +143,15 @@ function importarCSV(input){
 
       const obj={cantidad,precio,fecha};
 
-      if(num<0){
-        (ventas[accion]=ventas[accion]||[]).push(obj);
-      }else{
+      if(num>0){
         (compras[accion]=compras[accion]||[]).push(obj);
+      }else{
+        (ventas[accion]=ventas[accion]||[]).push(obj);
       }
     });
 
     Object.keys(compras).forEach(a=>{
-      let v=ventas[a]||[];
+      const v=ventas[a]||[];
       compras[a].forEach(c=>{
         if(v.length){
           const s=v.shift();
@@ -178,6 +183,7 @@ function importarCSV(input){
   r.readAsText(input.files[0]);
 }
 
+/* === Render === */
 function render(){
   renderAbiertas();
   renderCerradas();
@@ -236,12 +242,12 @@ function renderFiltroMes(){
   meses.forEach(m=>filtroMes.innerHTML+=`<option>${m}</option>`);
 }
 
+/* === Utilidades === */
 function borrar(id){
   papelera=operaciones.find(o=>o.id===id);
   operaciones=operaciones.filter(o=>o.id!==id);
   guardarEstado();render();
 }
-
 function deshacer(){
   if(papelera){
     operaciones.push(papelera);
