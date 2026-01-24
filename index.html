@@ -14,7 +14,7 @@
 :root{
   --bg:#0b1220;--card:#111827;--border:#1f2937;
   --text:#e5e7eb;--muted:#9ca3af;
-  --green:#22c55e;--red:#ef4444;
+  --green:#22c55e;--red:#ef4444;--accent:#3b82f6;
 }
 body{
   background:linear-gradient(180deg,#0b1220,#020617);
@@ -86,27 +86,28 @@ button{font-weight:600}
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
 let papelera=null;
 
-function guardarEstado(){
-  localStorage.setItem("ops",JSON.stringify(operaciones));
+function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
+
+/* PARSER CSV REAL (respeta comillas y comas decimales) */
+function parseCSVLine(line){
+  const out=[]; let cur="", inside=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch === '"'){ inside=!inside; continue; }
+    if(ch === "," && !inside){ out.push(cur); cur=""; continue; }
+    cur+=ch;
+  }
+  out.push(cur);
+  return out;
 }
 
-/* CORRECCIÓN CLAVE DE DECIMALES */
-function parsePrecio(valor){
-  if(!valor) return 0;
-  valor = valor.replace(/"/g,"").trim();
-  if(valor.includes(",") && valor.includes(".")){
-    if(valor.lastIndexOf(",") > valor.lastIndexOf(".")){
-      valor = valor.replace(/\./g,"").replace(",",".");
-    }else{
-      valor = valor.replace(/,/g,"");
-    }
-  }else if(valor.includes(",")){
-    valor = valor.replace(",",".");
-  }
-  return Number(valor);
+/* PRECIO EUROPEO REAL */
+function parsePrecioEU(v){
+  return Number(v.replace(/\./g,"").replace(",","."));
 }
 
 function guardarCompra(){
+  if(!accion.value||!cantidad.value||!precio.value||!fechaCompra.value)return;
   operaciones.push({
     id:crypto.randomUUID(),
     accion:accion.value.trim(),
@@ -127,15 +128,18 @@ function importarCSV(input){
 
     filas.forEach(f=>{
       if(!f.trim())return;
-      const c=f.split(",");
-      const accion=c[2];
-      const fecha=c[0].split("-").reverse().join("-");
-      const num=parseInt(c[6],10);
+      const c=parseCSVLine(f);
+
+      const accion=c[2]?.trim();
+      const fecha=c[0]?.split("-").reverse().join("-");
+      const num=parseInt(c[6]);
       const cantidad=Math.abs(num);
-      const precio=parsePrecio(c[7]);
-      if(!accion||!cantidad||!precio)return;
+      const precio=parsePrecioEU(c[7]);
+
+      if(!accion||!cantidad||!precio||!fecha)return;
 
       const obj={cantidad,precio,fecha};
+
       if(num<0)(ventas[accion]=ventas[accion]||[]).push(obj);
       else (compras[accion]=compras[accion]||[]).push(obj);
     });
@@ -167,6 +171,7 @@ function importarCSV(input){
         }
       });
     });
+
     guardarEstado();render();
   };
   r.readAsText(input.files[0]);
@@ -194,6 +199,7 @@ function renderCerradas(){
     if(filtroMes.value && !o.fechaVenta.startsWith(filtroMes.value))return;
     if(desde.value && o.fechaVenta<desde.value)return;
     if(hasta.value && o.fechaVenta>hasta.value)return;
+
     const r=o.cantidad*(o.precioVenta-o.precioCompra);
     total+=r;
     cerradas.innerHTML+=`
@@ -210,7 +216,7 @@ function renderCerradas(){
 
 function renderResumen(){
   let m=0,a=0;
-  const hoy=new Date(),mes=hoy.toISOString().slice(0,7),anio=hoy.getFullYear().toString();
+  const hoy=new Date(),mes=hoy.toISOString().slice(0,7),anio=hoy.getFullYear();
   operaciones.filter(o=>!o.abierta).forEach(o=>{
     const r=o.cantidad*(o.precioVenta-o.precioCompra);
     if(o.fechaVenta.startsWith(mes))m+=r;
@@ -238,30 +244,22 @@ function deshacer(){
 function exportarCSV(){
   let csv="Acción,Fecha compra,Cantidad,Precio compra,Fecha venta,Precio venta,Resultado\n";
   operaciones.filter(o=>!o.abierta).forEach(o=>{
-    const r=o.cantidad*(o.precioVenta-o.precioCompra);
-    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${o.fechaVenta},${o.precioVenta},${r.toFixed(2)}\n`;
+    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${o.fechaVenta},${o.precioVenta},${(o.cantidad*(o.precioVenta-o.precioCompra)).toFixed(2)}\n`;
   });
   const b=new Blob([csv],{type:"text/csv"});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);
-  a.download="operaciones.csv";
-  a.click();
+  a.href=URL.createObjectURL(b);a.download="operaciones.csv";a.click();
 }
 
 function backup(){
   const b=new Blob([JSON.stringify(operaciones)],{type:"application/json"});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);
-  a.download="backup.json";
-  a.click();
+  a.href=URL.createObjectURL(b);a.download="backup.json";a.click();
 }
 
 function restaurar(i){
   const r=new FileReader();
-  r.onload=e=>{
-    operaciones=JSON.parse(e.target.result);
-    guardarEstado();render();
-  };
+  r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render()};
   r.readAsText(i.files[0]);
 }
 
