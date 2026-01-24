@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestor de Acciones</title>
 
+<!-- ICONOS PROFESIONALES -->
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
 <style>
 :root{
   --bg:#0b1220;
@@ -24,8 +28,13 @@ body{
   padding:16px;
 }
 
-h2{font-weight:700;margin-bottom:16px}
-h3{margin:0 0 8px 0;font-weight:600}
+h2,h3{margin:0 0 10px 0}
+
+.section-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
 
 input,button,select{
   width:100%;
@@ -40,10 +49,24 @@ input,button,select{
 input::placeholder{color:var(--muted)}
 
 button{
-  background:var(--accent);
   border:none;
   font-weight:600;
   cursor:pointer;
+}
+
+.btn-primary{
+  background:linear-gradient(135deg,#3b82f6,#2563eb);
+  color:white;
+}
+
+.btn-success{
+  background:linear-gradient(135deg,#22c55e,#16a34a);
+  color:#022c22;
+}
+
+.btn-secondary{
+  background:#020617;
+  border:1px solid var(--border);
 }
 
 .card{
@@ -72,32 +95,61 @@ button{
 .small{font-size:13px;color:var(--muted)}
 .green{color:var(--green);font-weight:700}
 .red{color:var(--red);font-weight:700}
-.icon{cursor:pointer;font-size:18px}
+
+.icon{
+  cursor:pointer;
+  font-size:18px;
+  padding:6px;
+  border-radius:8px;
+}
+
+.icon.edit{color:#38bdf8}
+.icon.delete{color:#ef4444}
+.icon:hover{background:#020617}
+
 .range{display:flex;gap:8px}
-.modal{background:#020617;border:1px solid var(--border);border-radius:12px;padding:10px;margin-top:10px}
+
+.modal{
+  background:#020617;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px;
+  margin-top:10px;
+}
+
+hr{
+  border:none;
+  border-top:1px solid var(--border);
+  margin:10px 0;
+}
 </style>
 </head>
 
 <body>
 
-<h2>📈 Gestor de Acciones</h2>
+<h2 class="section-title">
+  <i class="fa-solid fa-chart-line"></i>
+  Gestor de Acciones
+</h2>
 
 <div class="card">
-<h3>Nueva compra</h3>
+<h3 class="section-title"><i class="fa-solid fa-plus"></i> Nueva compra</h3>
 <input id="accion" placeholder="Acción">
 <input id="cantidad" type="number" placeholder="Cantidad">
 <input id="precio" type="number" step="0.01" placeholder="Precio compra">
 <input id="fechaCompra" type="date">
-<button onclick="guardarCompra()">Guardar compra</button>
+<button class="btn-primary" onclick="guardarCompra()">
+  <i class="fa-solid fa-floppy-disk"></i> Guardar compra
+</button>
 </div>
 
 <div class="card">
-<h3>📂 Operaciones abiertas</h3>
+<h3 class="section-title"><i class="fa-solid fa-folder-open"></i> Operaciones abiertas</h3>
 <div id="abiertas"></div>
 </div>
 
 <div class="card">
-<h3>📁 Operaciones cerradas</h3>
+<h3 class="section-title"><i class="fa-solid fa-folder-closed"></i> Operaciones cerradas</h3>
 
 <select id="filtroMes" onchange="render()">
 <option value="">Todos los meses</option>
@@ -111,14 +163,20 @@ button{
 <div id="totalMes"></div>
 <div id="cerradas"></div>
 
-<button onclick="deshacer()">↩️ Deshacer borrado</button>
-<button onclick="exportarCSV()">📤 Exportar Excel</button>
-<button onclick="backup()">💾 Backup</button>
+<button class="btn-secondary" onclick="deshacer()">
+  <i class="fa-solid fa-rotate-left"></i> Deshacer borrado
+</button>
+<button class="btn-secondary" onclick="exportarCSV()">
+  <i class="fa-solid fa-file-excel"></i> Exportar Excel
+</button>
+<button class="btn-secondary" onclick="backup()">
+  <i class="fa-solid fa-cloud-arrow-down"></i> Backup
+</button>
 <input type="file" onchange="restaurar(this)">
 </div>
 
 <div class="card">
-<h3>📊 Resumen</h3>
+<h3 class="section-title"><i class="fa-solid fa-chart-pie"></i> Resumen</h3>
 <div id="resumen"></div>
 </div>
 
@@ -126,23 +184,6 @@ button{
 let operaciones = JSON.parse(localStorage.getItem("ops")) || [];
 let papelera=null;
 let cerrarId=null;
-
-/* =========================
-   BACKUP SEMANAL AUTOMÁTICO
-========================= */
-function comprobarBackupSemanal(){
-  const ultima = localStorage.getItem("ultimoBackup");
-  if(!ultima) return;
-
-  const dias = (Date.now() - new Date(ultima)) / (1000*60*60*24);
-  if(dias >= 7){
-    if(confirm("Han pasado más de 7 días desde el último backup.\n¿Quieres guardar uno ahora?")){
-      backup();
-    }
-  }
-}
-
-/* ========================= */
 
 function guardarEstado(){
   localStorage.setItem("ops",JSON.stringify(operaciones));
@@ -221,14 +262,16 @@ function renderAbiertas(){
           ${o.fechaCompra}<br>
           ${o.cantidad} × ${o.precioCompra} € = ${(o.cantidad*o.precioCompra).toFixed(2)} €
         </div>
-        <button onclick="mostrarCerrar('${o.id}')">Cerrar</button>
+        <button class="btn-success" onclick="mostrarCerrar('${o.id}')">
+          <i class="fa-solid fa-check"></i> Cerrar
+        </button>
       </div>
       ${cerrarId===o.id?`
       <div class="modal">
         <input id="precioVenta" type="number" step="0.01" placeholder="Precio venta">
         <input id="fechaVenta" type="date">
-        <button onclick="confirmarCerrar()">Confirmar</button>
-        <button onclick="cancelarCerrar()">Cancelar</button>
+        <button class="btn-success" onclick="confirmarCerrar()">Confirmar</button>
+        <button class="btn-secondary" onclick="cancelarCerrar()">Cancelar</button>
       </div>`:""}
     </div>`;
   });
@@ -254,8 +297,8 @@ function renderCerradas(){
       ${o.fechaVenta}<br>
       ${o.cantidad} × ${o.precioVenta} € = ${v.toFixed(2)} €
       <div class="${r>=0?'green':'red'}">${r>=0?'+':''}${r.toFixed(2)} €</div>
-      <span class="icon" onclick="editar('${o.id}')">✏️</span>
-      <span class="icon" onclick="borrar('${o.id}')">🗑</span>
+      <i class="fa-solid fa-pen icon edit" onclick="editar('${o.id}')"></i>
+      <i class="fa-solid fa-trash icon delete" onclick="borrar('${o.id}')"></i>
     </div>`;
   });
   totalMes.innerHTML=`<strong>TOTAL FILTRADO: ${total.toFixed(2)} €</strong>`;
@@ -271,8 +314,8 @@ function renderResumen(){
   const hoy=new Date();
   const mes=hoy.toISOString().slice(0,7);
   const anio=hoy.getFullYear().toString();
-
   let mesTotal=0, anioTotal=0;
+
   operaciones.filter(o=>!o.abierta).forEach(o=>{
     const r=(o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
     if(o.fechaVenta.startsWith(mes)) mesTotal+=r;
@@ -280,22 +323,41 @@ function renderResumen(){
   });
 
   resumen.innerHTML=`
-    Mes en curso:
-    <span class="${mesTotal>=0?'green':'red'}">${mesTotal.toFixed(2)} €</span><br>
-    Año en curso:
-    <span class="${anioTotal>=0?'green':'red'}">${anioTotal.toFixed(2)} €</span>
-  `;
+  <div class="box">
+    <div class="row">
+      <span><i class="fa-solid fa-calendar-days"></i> Mes en curso</span>
+      <span class="${mesTotal>=0?'green':'red'}">${mesTotal.toFixed(2)} €</span>
+    </div>
+    <hr>
+    <div class="row">
+      <span><i class="fa-solid fa-chart-pie"></i> Año en curso</span>
+      <span class="${anioTotal>=0?'green':'red'}">${anioTotal.toFixed(2)} €</span>
+    </div>
+  </div>`;
 }
 
-/* ========= BACKUP CON FECHA ========= */
+function exportarCSV(){
+  let csv="Acción,Fecha compra,Cantidad,Precio compra,Importe compra,Fecha venta,Precio venta,Importe venta,Resultado\n";
+  operaciones.filter(o=>!o.abierta).forEach(o=>{
+    const compra=o.cantidad*o.precioCompra;
+    const venta=o.cantidad*o.precioVenta;
+    const res=venta-compra;
+    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${compra.toFixed(2)},${o.fechaVenta},${o.precioVenta},${venta.toFixed(2)},${res.toFixed(2)}\n`;
+  });
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="operaciones.csv";
+  a.click();
+}
+
 function backup(){
   const hoy=new Date().toISOString().slice(0,10);
   const b=new Blob([JSON.stringify(operaciones)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(b);
-  a.download=`gestor_acciones_backup_${hoy}.json`;
+  a.download=`backup_${hoy}.json`;
   a.click();
-  localStorage.setItem("ultimoBackup",new Date().toISOString());
 }
 
 function restaurar(i){
@@ -309,7 +371,6 @@ function restaurar(i){
 }
 
 render();
-comprobarBackupSemanal();
 </script>
 
 </body>
