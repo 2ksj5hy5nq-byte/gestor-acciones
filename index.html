@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestor de Acciones</title>
 
-<!-- ✅ AÑADIDO PASO 4 (NO TOCAR) -->
-<link rel="manifest" href="manifest.json">
-
 <style>
 body {
   background:#0f172a;
@@ -104,16 +101,16 @@ function guardarCompra() {
   render();
 }
 
-function limpiarFormulario(){
-  accion.value = "";
-  cantidad.value = "";
-  precio.value = "";
-  fechaCompra.value = "";
+function limpiarFormulario() {
+  document.getElementById("accion").value = "";
+  document.getElementById("cantidad").value = "";
+  document.getElementById("precio").value = "";
+  document.getElementById("fechaCompra").value = "";
 }
 
 function cerrarOperacion(id) {
-  const precioVenta = prompt("Precio de venta:");
-  if (!precioVenta || isNaN(precioVenta)) return;
+  const precioVenta = Number(prompt("Precio de venta:"));
+  if (!precioVenta || precioVenta <= 0) return;
 
   const fechaVenta = prompt("Fecha de venta (YYYY-MM-DD):");
   if (!fechaVenta) return;
@@ -121,7 +118,7 @@ function cerrarOperacion(id) {
   const op = operaciones.find(o => o.id === id);
   if (!op) return;
 
-  op.precioVenta = Number(precioVenta);
+  op.precioVenta = precioVenta;
   op.fechaVenta = fechaVenta;
   op.abierta = false;
 
@@ -146,7 +143,9 @@ function renderAbiertas() {
         <div>
           <strong>${o.accion}</strong><br>
           <span class="small">${o.fechaCompra}</span><br>
-          <span class="small">${o.cantidad} × ${o.precioCompra} € = ${totalCompra.toFixed(2)} €</span>
+          <span class="small">
+            ${o.cantidad} × ${o.precioCompra} € = ${totalCompra.toFixed(2)} €
+          </span>
         </div>
         <button onclick="cerrarOperacion('${o.id}')">Cerrar</button>
       </div>
@@ -158,29 +157,31 @@ function renderAbiertas() {
 function renderResumen() {
   const hoy = new Date();
   const mesActual = hoy.toISOString().slice(0,7);
-  const añoActual = hoy.getFullYear();
+  const añoActual = hoy.getFullYear().toString();
 
   let resultadoMes = 0;
   let resultadoAnual = 0;
 
-  operaciones.filter(o => !o.abierta).forEach(o => {
-    const resultado = (o.precioVenta - o.precioCompra) * o.cantidad;
+  operaciones.forEach(o => {
+    if (!o.abierta && o.precioVenta && o.fechaVenta) {
+      const resultado = (o.precioVenta - o.precioCompra) * o.cantidad;
 
-    if (o.fechaVenta.startsWith(mesActual)) {
-      resultadoMes += resultado;
-    }
-    if (o.fechaVenta.startsWith(añoActual.toString())) {
-      resultadoAnual += resultado;
+      if (o.fechaVenta.startsWith(mesActual)) {
+        resultadoMes += resultado;
+      }
+      if (o.fechaVenta.startsWith(añoActual)) {
+        resultadoAnual += resultado;
+      }
     }
   });
 
   document.getElementById("resumen").innerHTML = `
-    <div>📅 Mes en curso: 
+    <div>📅 Mes en curso:
       <span class="${resultadoMes>=0?'green':'red'}">
         ${resultadoMes.toFixed(2)} €
       </span>
     </div>
-    <div>📊 Año ${añoActual}: 
+    <div>📊 Año ${añoActual}:
       <span class="${resultadoAnual>=0?'green':'red'}">
         ${resultadoAnual.toFixed(2)} €
       </span>
@@ -189,13 +190,6 @@ function renderResumen() {
 }
 
 render();
-</script>
-
-<!-- ✅ AÑADIDO PASO 4 (NO TOCAR) -->
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js");
-}
 </script>
 
 </body>
