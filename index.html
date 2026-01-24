@@ -88,8 +88,16 @@ let papelera=null;
 
 function guardarEstado(){localStorage.setItem("ops",JSON.stringify(operaciones));}
 
-function parsePrecioEU(v){
-  return Number(v.replace(/\./g,"").replace(",","."));
+/* 🔒 FUNCIÓN CORRECTA PARA DECIMALES EUROPEOS */
+function parsePrecioEU(valor){
+  if(!valor) return 0;
+  return Number(
+    valor
+      .replace(/"/g,"")
+      .replace(/\./g,"")
+      .replace(",",".")
+      .trim()
+  );
 }
 
 function guardarCompra(){
@@ -114,11 +122,14 @@ function importarCSV(input){
     filas.forEach(f=>{
       if(!f.trim())return;
       const c=f.split(",");
-      const accion=c[2];
-      const fecha=c[0].split("-").reverse().join("-");
+      const accion=c[2]?.trim();
+      const fecha=c[0]?.split("-").reverse().join("-");
       const num=parseInt(c[6]);
       const cantidad=Math.abs(num);
-      const precio=parsePrecioEU(c[7].replace(/"/g,""));
+      const precio=parsePrecioEU(c[7]);
+
+      if(!accion || !cantidad || !precio) return;
+
       const obj={cantidad,precio,fecha};
 
       if(num<0)(ventas[accion]=ventas[accion]||[]).push(obj);
@@ -152,6 +163,7 @@ function importarCSV(input){
         }
       });
     });
+
     guardarEstado();render();
   };
   r.readAsText(input.files[0]);
@@ -217,9 +229,13 @@ function deshacer(){
   if(papelera){operaciones.push(papelera);papelera=null;guardarEstado();render();}
 }
 
-function exportarCSV(){/* igual que antes */}
-function backup(){/* igual que antes */}
-function restaurar(i){const r=new FileReader();r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render()};r.readAsText(i.files[0]);}
+function exportarCSV(){}
+function backup(){}
+function restaurar(i){
+  const r=new FileReader();
+  r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render()};
+  r.readAsText(i.files[0]);
+}
 
 render();
 </script>
