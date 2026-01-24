@@ -75,7 +75,6 @@ function guardarEstado(){
   localStorage.setItem("ops",JSON.stringify(operaciones));
 }
 
-/* ===== GUARDAR COMPRA (LIMPIA CAMPOS) ===== */
 function guardarCompra(){
   const a=accion.value.trim();
   const c=Number(cantidad.value);
@@ -95,7 +94,6 @@ function guardarCompra(){
   render();
 }
 
-/* ===== CERRAR CON CALENDARIO ===== */
 function mostrarCerrar(id){cerrarId=id;render();}
 function confirmarCerrar(){
   const pv=Number(document.getElementById("precioVenta").value);
@@ -111,7 +109,6 @@ function confirmarCerrar(){
 }
 function cancelarCerrar(){cerrarId=null;render();}
 
-/* ===== EDITAR / BORRAR ===== */
 function editar(id){
   const o=operaciones.find(x=>x.id===id);
   const pv=Number(prompt("Precio venta",o.precioVenta));
@@ -120,6 +117,7 @@ function editar(id){
   o.precioVenta=pv;o.fechaVenta=fv;
   guardarEstado();render();
 }
+
 function borrar(id){
   papelera=operaciones.find(o=>o.id===id);
   operaciones=operaciones.filter(o=>o.id!==id);
@@ -132,7 +130,6 @@ function deshacer(){
   guardarEstado();render();
 }
 
-/* ===== RENDER ===== */
 function render(){
   renderAbiertas();
   renderCerradas();
@@ -170,14 +167,17 @@ function renderCerradas(){
     if(filtroMes.value && !o.fechaVenta.startsWith(filtroMes.value))return;
     if(desde.value && o.fechaVenta<desde.value)return;
     if(hasta.value && o.fechaVenta>hasta.value)return;
+
     const c=o.cantidad*o.precioCompra;
     const v=o.cantidad*o.precioVenta;
     const r=v-c; total+=r;
+
     cerradas.innerHTML+=`
     <div class="box">
       <strong>${o.accion}</strong><br>
       ${o.fechaCompra}<br>
-      ${o.cantidad} × ${o.precioCompra} € = ${c.toFixed(2)} €<hr>
+      ${o.cantidad} × ${o.precioCompra} € = ${c.toFixed(2)} €
+      <hr>
       ${o.fechaVenta}<br>
       ${o.cantidad} × ${o.precioVenta} € = ${v.toFixed(2)} €
       <div class="${r>=0?'green':'red'}">${r>=0?'+':''}${r.toFixed(2)} €</div>
@@ -195,34 +195,65 @@ function renderFiltroMes(){
 }
 
 function renderResumen(){
-  let inv=0,rec=0;
-  operaciones.forEach(o=>{
-    inv+=o.cantidad*o.precioCompra;
-    if(!o.abierta)rec+=o.cantidad*o.precioVenta;
+  const hoy=new Date();
+  const mes=hoy.toISOString().slice(0,7);
+  const anio=hoy.getFullYear().toString();
+
+  let mesTotal=0, anioTotal=0;
+  operaciones.filter(o=>!o.abierta).forEach(o=>{
+    const r=(o.cantidad*o.precioVenta)-(o.cantidad*o.precioCompra);
+    if(o.fechaVenta.startsWith(mes)) mesTotal+=r;
+    if(o.fechaVenta.startsWith(anio)) anioTotal+=r;
   });
-  resumen.innerHTML=`Capital invertido: ${inv.toFixed(2)} €<br>
-  Capital recuperado: ${rec.toFixed(2)} €<br>
-  Resultado: ${(rec-inv).toFixed(2)} €`;
+
+  resumen.innerHTML=`
+    Mes en curso:
+    <span class="${mesTotal>=0?'green':'red'}">${mesTotal.toFixed(2)} €</span><br>
+    Año en curso:
+    <span class="${anioTotal>=0?'green':'red'}">${anioTotal.toFixed(2)} €</span>
+  `;
 }
 
-/* ===== EXPORT / BACKUP ===== */
+/* ===== EXPORTAR EXCEL (CON RESULTADO POR OPERACIÓN) ===== */
 function exportarCSV(){
-  let csv="Acción,Fecha compra,Cantidad,Precio compra,Fecha venta,Precio venta\n";
-  operaciones.filter(o=>!o.abierta).forEach(o=>{
-    csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${o.fechaVenta},${o.precioVenta}\n`;
-  });
-  const b=new Blob([csv],{type:"text/csv"});
+  let csv="Acción,Fecha compra,Cantidad,Precio compra,Importe compra,Fecha venta,Precio venta,Importe venta,Resultado\n";
+
+  operaciones
+    .filter(o=>!o.abierta)
+    .forEach(o=>{
+      if(filtroMes.value && !o.fechaVenta.startsWith(filtroMes.value))return;
+      if(desde.value && o.fechaVenta<desde.value)return;
+      if(hasta.value && o.fechaVenta>hasta.value)return;
+
+      const compra=o.cantidad*o.precioCompra;
+      const venta=o.cantidad*o.precioVenta;
+      const res=venta-compra;
+
+      csv+=`${o.accion},${o.fechaCompra},${o.cantidad},${o.precioCompra},${compra.toFixed(2)},${o.fechaVenta},${o.precioVenta},${venta.toFixed(2)},${res.toFixed(2)}\n`;
+    });
+
+  const blob=new Blob([csv],{type:"text/csv"});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);a.download="operaciones.csv";a.click();
+  a.href=URL.createObjectURL(blob);
+  a.download="operaciones_filtradas.csv";
+  a.click();
 }
+
 function backup(){
   const b=new Blob([JSON.stringify(operaciones)],{type:"application/json"});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(b);a.download="backup.json";a.click();
+  a.href=URL.createObjectURL(b);
+  a.download="backup.json";
+  a.click();
 }
+
 function restaurar(i){
   const r=new FileReader();
-  r.onload=e=>{operaciones=JSON.parse(e.target.result);guardarEstado();render();}
+  r.onload=e=>{
+    operaciones=JSON.parse(e.target.result);
+    guardarEstado();
+    render();
+  };
   r.readAsText(i.files[0]);
 }
 
